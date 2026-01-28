@@ -32,9 +32,35 @@ resource "azurerm_network_security_group" "ai_foundry" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
+  # APIM Management Endpoint (필수 - Internal VNet 모드)
+  security_rule {
+    name                       = "AllowAPIMManagement"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3443"
+    source_address_prefix      = "ApiManagement"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  # Azure Load Balancer Health Probe (필수)
+  security_rule {
+    name                       = "AllowAzureLoadBalancer"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "6390"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
   security_rule {
     name                       = "AllowHTTPS"
-    priority                   = 100
+    priority                   = 120
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
@@ -42,6 +68,19 @@ resource "azurerm_network_security_group" "ai_foundry" {
     destination_port_range     = "443"
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "*"
+  }
+
+  # APIM Gateway 포트 (Internal VNet 모드)
+  security_rule {
+    name                       = "AllowAPIMGateway"
+    priority                   = 130
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "VirtualNetwork"
   }
 
   security_rule {
