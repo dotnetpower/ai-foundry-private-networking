@@ -1,0 +1,36 @@
+# =============================================================================
+# Terraform Backend Configuration - Development Environment
+# =============================================================================
+# 이 파일을 backend.tfvars로 복사하여 실제 값을 입력하세요.
+# cp backend.tfvars.example backend.tfvars
+# =============================================================================
+
+# Terraform 상태 파일을 저장할 리소스 그룹
+resource_group_name = "rg-terraform-state-dev"
+
+# Terraform 상태 파일을 저장할 Storage Account (전역 고유 이름 필요)
+storage_account_name = "your-unique-tfstate-storage"
+
+# Terraform 상태 파일을 저장할 Blob Container
+container_name = "tfstate"
+
+# Terraform 상태 파일 이름
+key = "aifoundry-dev.tfstate"
+
+# =============================================================================
+# 사전 준비 사항
+# =============================================================================
+# 1. Azure CLI 로그인: az login
+# 2. 상태 저장용 리소스 그룹 생성:
+#    az group create --name rg-terraform-state-dev --location eastus
+# 3. Storage Account 생성:
+#    az storage account create \
+#      --name <your-unique-storage-name> \
+#      --resource-group rg-terraform-state-dev \
+#      --sku Standard_LRS \
+#      --encryption-services blob
+# 4. Blob Container 생성:
+#    az storage container create \
+#      --name tfstate \
+#      --account-name <your-unique-storage-name>
+# =============================================================================

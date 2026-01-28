@@ -1,0 +1,60 @@
+# =============================================================================
+# AI Foundry Private Networking - Development Environment Configuration
+# =============================================================================
+# 이 파일을 terraform.tfvars로 복사하여 실제 값을 입력하세요.
+# cp terraform.tfvars.example terraform.tfvars
+# =============================================================================
+
+# 리소스 그룹 이름 (비어있으면 rg-aifoundry-YYYYMMDD 자동 생성)
+resource_group_name = ""
+
+# 배포 날짜 (비어있으면 현재 날짜 자동 사용, YYYYMMDD 형식)
+# deploy_date = "20260128"
+
+# Azure 리전
+location = "eastus"
+
+# 환경 구분
+environment = "dev"
+
+# 프로젝트 이름 (리소스 이름 생성에 사용)
+project_name = "aifoundry"
+
+# VNet 주소 공간
+vnet_address_space = ["10.0.0.0/16"]
+
+# 서브넷 구성
+subnet_config = {
+  ai_foundry = {
+    address_prefixes  = ["10.0.1.0/24"]
+    service_endpoints = ["Microsoft.Storage", "Microsoft.KeyVault", "Microsoft.CognitiveServices"]
+  }
+  jumpbox = {
+    address_prefixes  = ["10.0.2.0/24"]
+    service_endpoints = []
+  }
+}
+
+# =============================================================================
+# Jumpbox 자격 증명 (민감 정보 - 환경 변수 사용 권장)
+# =============================================================================
+# 환경 변수로 설정: export TF_VAR_jumpbox_admin_username="azureuser"
+# 환경 변수로 설정: export TF_VAR_jumpbox_admin_password="YourSecurePassword"
+# jumpbox_admin_username = "azureuser"
+# jumpbox_admin_password = "ChangeMe!123"
+
+# =============================================================================
+# API Management 설정
+# =============================================================================
+# publisher_email = "admin@example.com"
+# apim_sku_name   = "Developer_1"
+
+# =============================================================================
+# 리소스 태그
+# =============================================================================
+tags = {
+  Environment = "dev"
+  Project     = "AI Foundry Private Networking"
+  ManagedBy   = "Terraform"
+  Owner       = "YourTeam"
+}
