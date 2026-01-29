@@ -25,6 +25,196 @@ Azure AI Foundry를 프라이빗 네트워크 환경에서 구성하기 위한 T
 | **East US** | AI Foundry Hub/Project, Azure OpenAI, Storage, Key Vault, APIM, VNet |
 | **Korea Central** | Jumpbox VMs (Windows/Linux), Bastion Host, VNet Peering |
 
+### 인프라 다이어그램
+
+#### 전체 아키텍처
+
+```mermaid
+flowchart LR
+    subgraph User["👤 사용자 접근"]
+        Portal["Azure Portal"]
+    end
+
+    subgraph KRC["🇰🇷 Korea Central"]
+        Bastion["🛡️ Bastion"]
+        subgraph JumpboxVMs["Jumpbox VMs"]
+            WinVM["🖥️ Windows<br/>10.1.1.4"]
+            LinuxVM["🐧 Linux<br/>10.1.1.5"]
+        end
+    end
+
+    subgraph EUS["🌍 East US"]
+        subgraph AIServices["AI Foundry Services"]
+            Hub["🏠 AI Hub"]
+            Project["📁 AI Project"]
+        end
+        subgraph Backend["Backend Services"]
+            OpenAI["🧠 OpenAI"]
+            Search["🔍 AI Search"]
+            Storage["💾 Storage"]
+            KV["🔐 Key Vault"]
+        end
+    end
+
+    Portal --> Bastion
+    Bastion --> WinVM & LinuxVM
+    WinVM & LinuxVM -.->|Private Endpoint| Hub
+    Hub --> Project
+    Project --> OpenAI & Search
+    Hub --> Storage & KV
+```
+
+#### East US 리전 상세
+
+```mermaid
+flowchart TB
+    subgraph VNet["🔒 vnet-aifoundry 10.0.0.0/16"]
+        subgraph Subnet["snet-ai-foundry"]
+            PE1["🔗 PE: AI Hub"]
+            PE2["🔗 PE: OpenAI"]
+            PE3["🔗 PE: Storage"]
+            PE4["🔗 PE: Key Vault"]
+            PE5["🔗 PE: AI Search"]
+            PE6["🔗 PE: ACR"]
+        end
+    end
+
+    subgraph AI["🤖 AI Foundry"]
+        Hub["🏠 aihub-foundry"]
+        Project["📁 aiproj-agents"]
+    end
+
+    subgraph OpenAI["🧠 aoai-aifoundry"]
+        GPT["💬 GPT-4o"]
+        Embed["📊 text-embedding-ada-002"]
+    end
+
+    subgraph Store["💾 Storage"]
+        SA["📦 staifoundry20260128"]
+        ACR["🐳 acraifoundry..."]
+    end
+
+    KV["🔐 kv-aif-e8txcj4l"]
+    Search["🔍 srch-aifoundry"]
+
+    subgraph Monitor["📊 Monitoring"]
+        Log["📈 Log Analytics"]
+        AppIns["🔭 App Insights"]
+    end
+
+    APIM["🌐 API Management"]
+
+    PE1 -.-> Hub
+    PE2 -.-> OpenAI
+    PE3 -.-> SA
+    PE4 -.-> KV
+    PE5 -.-> Search
+    PE6 -.-> ACR
+
+    Hub --> Project
+    Hub --> OpenAI
+    Hub --> Search
+    Hub --> SA
+    Hub --> KV
+    Hub --> ACR
+    Project --> AppIns
+    APIM --> OpenAI
+```
+
+#### Korea Central 리전 상세
+
+```mermaid
+flowchart TB
+    subgraph VNet["🔒 vnet-jumpbox-krc 10.1.0.0/16"]
+        subgraph SubnetBastion["AzureBastionSubnet"]
+            Bastion["🛡️ bastion-jumpbox-krc"]
+        end
+        subgraph SubnetJB["snet-jumpbox 10.1.1.0/24"]
+            WinVM["🖥️ vm-jb-win-krc<br/>Private IP: 10.1.1.4<br/>Python, Azure CLI"]
+            LinuxVM["🐧 vm-jumpbox-linux-krc<br/>Private IP: 10.1.1.5<br/>Docker, Azure CLI"]
+        end
+    end
+
+    Peering["🔄 VNet Peering<br/>↔ East US"]
+
+    User["👤 사용자"] --> |Azure Portal| Bastion
+    Bastion --> |RDP| WinVM
+    Bastion --> |SSH| LinuxVM
+    WinVM & LinuxVM --> Peering
+    Peering --> |Private Network| EUS["East US AI Services"]
+```
+
+### 데이터 흐름도
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 사용자
+    participant Bastion as 🛡️ Azure Bastion
+    participant Jumpbox as 🖥️ Jumpbox VM
+    participant PE as 🔗 Private Endpoint
+    participant Hub as 🏠 AI Hub
+    participant Project as 📁 AI Project
+    participant OpenAI as 🧠 Azure OpenAI
+    participant Search as 🔍 AI Search
+    
+    User->>Bastion: 1. Azure Portal 접속
+    Bastion->>Jumpbox: 2. 보안 터널링
+    Jumpbox->>PE: 3. 프라이빗 네트워크 경유
+    PE->>Hub: 4. AI Hub 접근
+    Hub->>Project: 5. 프로젝트 선택
+    
+    Note over Project,OpenAI: AI 에이전트 실행
+    Project->>OpenAI: 6. GPT-4o 호출
+    OpenAI-->>Project: 7. 응답 반환
+    
+    Note over Project,Search: RAG 패턴 (선택)
+    Project->>Search: 8. 문서 검색
+    Search-->>Project: 9. 검색 결과
+    
+    Project-->>Jumpbox: 10. 결과 표시
+```
+
+### 네트워크 보안 구성
+
+```mermaid
+graph LR
+    subgraph Internet["🌐 인터넷"]
+        ExtUser["외부 사용자"]
+    end
+    
+    subgraph Azure["☁️ Azure"]
+        subgraph Public["공용 접근점"]
+            Portal["Azure Portal"]
+            APIM_Pub["APIM Gateway"]
+        end
+        
+        subgraph Private["🔒 프라이빗 네트워크"]
+            Bastion["Azure Bastion"]
+            
+            subgraph VNet1["East US VNet"]
+                AIServices["AI Services<br/>(Private Only)"]
+            end
+            
+            subgraph VNet2["Korea Central VNet"]
+                Jumpbox["Jumpbox VMs"]
+            end
+            
+            VNet1 <--> VNet2
+        end
+    end
+    
+    ExtUser -->|"HTTPS"| Portal
+    ExtUser -->|"API 호출"| APIM_Pub
+    Portal -->|"Bastion 연결"| Bastion
+    Bastion -->|"RDP/SSH"| Jumpbox
+    Jumpbox -->|"Private Endpoint"| AIServices
+    APIM_Pub -->|"Private Backend"| AIServices
+    
+    style Private fill:#e6f3ff,stroke:#0078D4
+    style AIServices fill:#7B2C8C,color:#fff
+    style Bastion fill:#107C10,color:#fff
+```
+
 ### 배포된 주요 리소스 (2026년 1월 28일 기준)
 
 | 카테고리 | 리소스 | 이름/값 |
