@@ -2,7 +2,7 @@
 
 이 디렉토리는 Azure AI Foundry를 프라이빗 네트워킹 환경에서 구성하기 위한 Terraform 코드를 포함합니다.
 
-> **최종 배포**: 2026년 1월 28일  
+> **최종 배포**: 2026년 1월 30일  
 > **리소스 그룹**: `rg-aifoundry-20260128`
 
 ## 폴더 구조
@@ -28,6 +28,7 @@ infra/
 │   └── apim/                  # API Management
 └── scripts/                   # 자동화 스크립트
     ├── deploy.sh              # 배포 스크립트
+    ├── import-resources.sh    # Terraform 상태 import
     ├── init-terraform.sh      # 초기화 스크립트
     ├── setup-backend.sh       # 백엔드 설정
     └── validate-terraform.sh  # 검증 스크립트
@@ -38,19 +39,20 @@ infra/
 ### 1. networking
 - Virtual Network 및 서브넷 생성 (10.0.0.0/16)
 - Network Security Groups 구성
-- Private DNS Zones 설정 (9개)
+- Private DNS Zones 설정 (10개)
 - Private Endpoints용 네트워크 인프라
 
 ### 2. security
 - Azure Key Vault: `kv-aif-e8txcj4l`
 - Managed Identity: `id-aifoundry`
 - RBAC 권한 할당
-- Private Endpoints 구성
+- Key Vault Private Endpoint (`pe-keyvault`)
 
 ### 3. storage
 - Storage Account: `staifoundry20260128`
 - Container Registry: `acraifoundryb658f2ug`
 - Private Endpoints 설정 (blob, file)
+- ACR Private DNS Zone VNet Link (`link-acr`)
 
 ### 4. ai-foundry
 - AI Hub: `aihub-foundry` (azapi_resource)
@@ -63,6 +65,7 @@ infra/
   - text-embedding-ada-002
 - Azure AI Search: `srch-aifoundry-7kkykgt6`
 - Private Endpoints 설정
+- Search Private DNS Zone VNet Link (`link-search`)
 
 ### 6. monitoring
 - Application Insights: `appi-aifoundry`
@@ -74,6 +77,7 @@ infra/
 - Linux Jumpbox: `vm-jumpbox-linux-krc` (10.1.1.5)
 - Bastion Host: `bastion-jumpbox-krc`
 - VNet Peering: Korea Central ↔ East US
+- 모든 Private DNS Zone VNet Links (리전 간 연결)
 
 ### 8. apim
 - API Management 개발자 포털
@@ -142,6 +146,7 @@ vnet_name                  = "vnet-aifoundry"
 2. **State 파일 보안**: Remote backend를 사용하여 상태 파일을 안전하게 관리하세요
 3. **비용 최적화**: 사용하지 않는 리소스는 즉시 제거하세요
 4. **azapi 프로바이더**: AI Foundry Hub/Project는 azapi를 사용해야 합니다
+5. **Terraform Import**: 기존 Azure 리소스를 Terraform으로 관리 시 `scripts/import-resources.sh` 사용
 
 ## 문제 해결
 

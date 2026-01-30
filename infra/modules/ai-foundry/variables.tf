@@ -60,8 +60,9 @@ variable "openai_endpoint" {
 }
 
 variable "openai_api_key" {
-  description = "Azure OpenAI API 키"
+  description = "Azure OpenAI API 키 (AAD 인증 사용 시 빈 문자열 가능)"
   type        = string
+  default     = ""
   sensitive   = true
 }
 
@@ -73,8 +74,14 @@ variable "ai_search_endpoint" {
 }
 
 variable "ai_search_api_key" {
-  description = "Azure AI Search API 키"
+  description = "Azure AI Search API 키 (AAD 인증 사용 시 빈 문자열 가능)"
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "ai_search_id" {
+  description = "Azure AI Search 리소스 ID (RBAC 할당용)"
+  type        = string
+  default     = ""
 }

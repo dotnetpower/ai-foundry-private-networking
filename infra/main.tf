@@ -77,6 +77,8 @@ module "security" {
   resource_group_name     = azurerm_resource_group.main.name
   location                = azurerm_resource_group.main.location
   vnet_id                 = module.networking.vnet_id
+  subnet_id               = module.networking.ai_foundry_subnet_id
+  private_dns_zone_ids    = module.networking.private_dns_zone_ids
   create_private_dns_zone = false # 이미 존재하는 DNS Zone 사용
   tags                    = var.tags
 }
@@ -89,6 +91,7 @@ module "storage" {
   location             = azurerm_resource_group.main.location
   storage_account_name = local.storage_account_name
   subnet_id            = module.networking.ai_foundry_subnet_id
+  vnet_id              = module.networking.vnet_id
   private_dns_zone_ids = module.networking.private_dns_zone_ids
   tags                 = local.common_tags
 }
@@ -100,6 +103,7 @@ module "cognitive_services" {
   resource_group_name  = azurerm_resource_group.main.name
   location             = azurerm_resource_group.main.location
   subnet_id            = module.networking.ai_foundry_subnet_id
+  vnet_id              = module.networking.vnet_id
   private_dns_zone_ids = module.networking.private_dns_zone_ids
   tags                 = var.tags
 }
@@ -119,14 +123,15 @@ module "ai_foundry" {
   private_dns_zone_ids    = module.networking.private_dns_zone_ids
   tags                    = var.tags
 
-  # Azure OpenAI 연결 (에이전트 개발용)
+  # Azure OpenAI 연결 (AAD 인증 - Managed Identity)
   openai_resource_id = module.cognitive_services.openai_id
   openai_endpoint    = module.cognitive_services.openai_endpoint
-  openai_api_key     = module.cognitive_services.openai_api_key
+  openai_api_key     = ""  # AAD 인증 사용으로 불필요
 
-  # Azure AI Search 연결 (RAG 패턴용)
+  # Azure AI Search 연결 (AAD 인증 - Managed Identity)
   ai_search_endpoint = module.cognitive_services.ai_search_endpoint
-  ai_search_api_key  = module.cognitive_services.ai_search_primary_key
+  ai_search_api_key  = ""  # AAD 인증 사용으로 불필요
+  ai_search_id       = module.cognitive_services.ai_search_id
 
   depends_on = [module.cognitive_services]
 }
@@ -156,13 +161,16 @@ module "monitoring" {
 module "jumpbox_krc" {
   source = "./modules/jumpbox-krc"
 
-  resource_group_name = azurerm_resource_group.main.name
-  jumpbox_location    = "koreacentral"
-  main_vnet_id        = module.networking.vnet_id
-  main_vnet_name      = module.networking.vnet_name
-  admin_username      = var.jumpbox_admin_username
-  admin_password      = var.jumpbox_admin_password
-  tags                = var.tags
+  resource_group_name  = azurerm_resource_group.main.name
+  jumpbox_location     = "koreacentral"
+  main_vnet_id         = module.networking.vnet_id
+  main_vnet_name       = module.networking.vnet_name
+  admin_username       = var.jumpbox_admin_username
+  admin_password       = var.jumpbox_admin_password
+  private_dns_zone_ids = module.networking.private_dns_zone_ids
+  tags                 = var.tags
+
+  depends_on = [module.networking]
 }
 
 # API Management 모듈 (배포 시간이 30-45분 소요)

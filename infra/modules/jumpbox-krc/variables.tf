@@ -35,3 +35,8 @@ variable "tags" {
   description = "리소스 태그"
   type        = map(string)
 }
+
+variable "private_dns_zone_ids" {
+  description = "Private DNS Zone IDs (networking 모듈에서 전달)"
+  type        = map(string)
+}

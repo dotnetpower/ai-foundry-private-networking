@@ -33,6 +33,10 @@ resource "random_string" "suffix" {
   length  = 8
   special = false
   upper   = false
+
+  lifecycle {
+    ignore_changes = [special, upper, length]
+  }
 }
 
 # Key Vault Access Policy for current user
@@ -74,6 +78,27 @@ resource "azurerm_key_vault_access_policy" "managed_identity" {
   certificate_permissions = [
     "Get", "List"
   ]
+}
+
+# Private Endpoint for Key Vault
+resource "azurerm_private_endpoint" "key_vault" {
+  name                = "pe-keyvault"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-keyvault"
+    private_connection_resource_id = azurerm_key_vault.main.id
+    is_manual_connection           = false
+    subresource_names              = ["vault"]
+  }
+
+  private_dns_zone_group {
+    name                 = "pdnsz-group-keyvault"
+    private_dns_zone_ids = [var.private_dns_zone_ids["vault"]]
+  }
 }
 
 # Note: Private DNS Zone for Key Vault is managed by the networking module

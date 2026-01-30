@@ -8,8 +8,8 @@
 
 | 기간 | 예상 비용 |
 |------|----------|
-| **일별 (Daily)** | ~$85 - $120 |
-| **월별 (Monthly)** | ~$2,550 - $3,600 |
+| **일별 (Daily)** | ~$95 - $130 |
+| **월별 (Monthly)** | ~$2,850 - $3,800 |
 
 > 실제 비용은 사용량에 따라 달라질 수 있습니다.
 
@@ -52,7 +52,9 @@
 
 | 티어 | 월별 고정 비용 | 일별 환산 |
 |------|---------------|----------|
-| Basic | $73.73 | $2.46 |
+| Standard (S1) | $245.28 | $8.18 |
+
+> ⚠️ **현재 배포 구성**: Private Endpoint 지원을 위해 Standard SKU 사용. Basic ($73.73)으로 변경 시 월 $171.55 절감 가능.
 
 ---
 
@@ -78,13 +80,13 @@
 |------|-----|------------|------|
 | Private Endpoints | 8개 | $0.01 | $58.40 |
 
-> AI Hub, AI Project, Storage (blob, file), Key Vault, ACR, OpenAI, AI Search
+> AI Hub, Storage (blob, file), Key Vault, ACR, OpenAI, AI Search, APIM
 
 ### 3.4 Private DNS Zones
 
 | 항목 | 개수 | 월별 (각) | 월별 총액 |
 |------|-----|----------|----------|
-| Private DNS Zones | 7개 | $0.50 | $3.50 |
+| Private DNS Zones | 10개 | $0.50 | $5.00 |
 
 ---
 
@@ -163,7 +165,7 @@
 | Jumpbox VMs (2대) | $9.22 | $280.32 |
 | Azure Bastion | $8.40 | $255.50 |
 | Private Endpoints (8개) | $1.95 | $58.40 |
-| Private DNS Zones | $0.12 | $3.50 |
+| Private DNS Zones | $0.17 | $5.00 |
 | Storage Account | $0.17 | $5.24 |
 | Container Registry | $0.17 | $5.00 |
 | Key Vault | $0.01 | $0.33 |
@@ -171,8 +173,8 @@
 | Log Analytics | $0.46 | $13.80 |
 | VNet Peering | $0.23 | $7.00 |
 | APIM (Developer) | $1.65 | $49.56 |
-| AI Search (Basic) | $2.46 | $73.73 |
-| **고정 비용 소계** | **$25.22** | **$763.88** |
+| AI Search (Standard) | $8.18 | $245.28 |
+| **고정 비용 소계** | **$30.99** | **$936.93** |
 
 ### 사용량 기반 비용 (AI 서비스)
 
@@ -188,9 +190,9 @@
 
 | 시나리오 | 일별 | 월별 |
 |----------|------|------|
-| **최소 (유휴 상태)** | ~$33 | ~$1,000 |
-| **일반 (개발 중)** | ~$50 | ~$1,500 |
-| **최대 (활발한 사용)** | ~$120 | ~$3,600 |
+| **최소 (유휴 상태)** | ~$39 | ~$1,175 |
+| **일반 (개발 중)** | ~$55 | ~$1,675 |
+| **최대 (활발한 사용)** | ~$130 | ~$3,800 |
 
 ---
 
@@ -215,8 +217,11 @@
 - 프로덕션: Basic ($152.91) 또는 Standard ($711.70)
 
 ### 5. AI Search 티어 검토
-- 개발: Free (제한적) 또는 Basic ($73.73)
-- 프로덕션: Standard S1 ($245.28)
+- Free: Private Endpoint 미지원 (공용 접근만 가능)
+- 개발: Basic ($73.73) - Private Endpoint 지원 ✅
+- 프로덕션: Standard S1 ($245.28) - Private Endpoint 지원 ✅
+
+> ⚠️ **중요**: Private Endpoint는 Basic 티어 이상에서만 지원됩니다. Free 티어는 Private Endpoint를 사용할 수 없습니다.
 
 ---
 

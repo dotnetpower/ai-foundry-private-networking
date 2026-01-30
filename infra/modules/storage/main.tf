@@ -153,6 +153,10 @@ resource "random_string" "suffix" {
   length  = 8
   special = false
   upper   = false
+
+  lifecycle {
+    ignore_changes = [special, upper, length]
+  }
 }
 
 # Private Endpoint for Container Registry
@@ -183,4 +187,13 @@ resource "azurerm_private_dns_zone" "acr" {
   name                = "privatelink.azurecr.io"
   resource_group_name = var.resource_group_name
   tags                = var.tags
+}
+
+# Private DNS Zone VNet Link for Container Registry
+resource "azurerm_private_dns_zone_virtual_network_link" "acr" {
+  name                  = "link-acr"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.acr.name
+  virtual_network_id    = var.vnet_id
+  tags                  = var.tags
 }

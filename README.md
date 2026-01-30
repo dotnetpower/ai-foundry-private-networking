@@ -304,21 +304,184 @@ cd src
 uv run visualize_infrastructure.py
 ```
 
-## 네트워크 구성
+## 네트워크 구성 상세
+
+### 전체 네트워크 아키텍처
+
+```mermaid
+flowchart TB
+    subgraph EUS["🌍 East US (메인 리전)"]
+        subgraph VNet1["🔒 vnet-aifoundry<br/>10.0.0.0/16"]
+            subgraph Subnet1["snet-aifoundry (10.0.1.0/24)<br/>Private Endpoints 전용"]
+                PE1["🔗 pe-aihub<br/>→ AI Foundry Hub"]
+                PE2["🔗 pe-storage-blob<br/>→ Storage Blob"]
+                PE3["🔗 pe-storage-file<br/>→ Storage File"]
+                PE4["🔗 pe-keyvault<br/>→ Key Vault"]
+                PE5["🔗 pe-openai<br/>→ Azure OpenAI"]
+                PE6["🔗 pe-search<br/>→ AI Search"]
+                PE7["🔗 pe-acr<br/>→ Container Registry"]
+                PE8["🔗 pe-apim<br/>→ API Management"]
+            end
+        end
+    end
+
+    subgraph KRC["🇰🇷 Korea Central (Jumpbox 리전)"]
+        subgraph VNet2["🔒 vnet-jumpbox-krc<br/>10.1.0.0/16"]
+            subgraph Subnet2["snet-jumpbox (10.1.1.0/24)<br/>Jumpbox VMs"]
+                WinVM["🖥️ vm-jb-win-krc<br/>10.1.1.4<br/>Windows 11 Pro<br/>Python, VS Code, Git, Azure CLI"]
+                LinuxVM["🐧 vm-jumpbox-linux-krc<br/>10.1.1.5<br/>Ubuntu 22.04<br/>Python, Docker, Azure CLI"]
+            end
+            subgraph BastionSubnet["AzureBastionSubnet<br/>10.1.255.0/26"]
+                Bastion["🛡️ bastion-jumpbox-krc<br/>Public IP, Standard SKU"]
+            end
+        end
+    end
+
+    VNet1 <-->|"🔄 VNet Peering<br/>peer-main-to-jumpbox<br/>peer-jumpbox-to-main"| VNet2
+    
+    style EUS fill:#e6f2ff,stroke:#0078D4
+    style KRC fill:#fff2e6,stroke:#FF6B35
+    style Subnet1 fill:#f0e6ff,stroke:#7B2C8C
+    style Subnet2 fill:#e6ffe6,stroke:#107C10
+    style BastionSubnet fill:#ffe6e6,stroke:#D13438
+```
+
+### VNet 및 서브넷 구성
+
+| VNet | 리전 | 주소 공간 | 용도 |
+|------|------|-----------|------|
+| `vnet-aifoundry` | East US | 10.0.0.0/16 | AI Foundry 및 관련 서비스 |
+| `vnet-jumpbox-krc` | Korea Central | 10.1.0.0/16 | 개발자 Jumpbox 및 Bastion |
+
+| 서브넷 | VNet | 주소 범위 | 가용 IP | 용도 |
+|--------|------|-----------|---------|------|
+| `snet-aifoundry` | vnet-aifoundry | 10.0.1.0/24 | 251개 | Private Endpoints |
+| `snet-jumpbox` | vnet-jumpbox-krc | 10.1.1.0/24 | 251개 | Jumpbox VMs |
+| `AzureBastionSubnet` | vnet-jumpbox-krc | 10.1.255.0/26 | 59개 | Azure Bastion (필수 이름) |
+
+### Network Security Groups (NSG)
+
+#### nsg-aifoundry (AI Foundry 서브넷)
+
+| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
+|----------|----------|------|------|------|------|------|------|
+| 100 | AllowAPIMManagement | Inbound | 3443 | ApiManagement | VirtualNetwork | Allow | APIM 관리 엔드포인트 |
+| 110 | AllowAzureLoadBalancer | Inbound | 6390 | AzureLoadBalancer | VirtualNetwork | Allow | Azure LB Health Probe |
+| 120 | AllowHTTPS | Inbound | 443 | VirtualNetwork | * | Allow | HTTPS 트래픽 |
+| 130 | AllowAPIMGateway | Inbound | 443 | Internet | VirtualNetwork | Allow | APIM Gateway |
+| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
+
+#### nsg-jumpbox-krc (Jumpbox 서브넷)
+
+| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
+|----------|----------|------|------|------|------|------|------|
+| 100 | AllowRDPFromBastion | Inbound | 3389 | 10.1.255.0/26 | * | Allow | Bastion → Windows RDP |
+| 110 | AllowSSHFromBastion | Inbound | 22 | 10.1.255.0/26 | * | Allow | Bastion → Linux SSH |
+| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
+| 100 | AllowEastUSVNet | Outbound | * | 10.1.0.0/16 | 10.0.0.0/16 | Allow | East US VNet 접근 |
+| 200 | AllowInternet | Outbound | * | * | Internet | Allow | 패키지 설치용 |
 
 ### 프라이빗 DNS 영역
 
-| DNS 영역 | 용도 |
-|----------|------|
-| `privatelink.api.azureml.ms` | AI Foundry API |
-| `privatelink.notebooks.azure.net` | Notebooks |
-| `privatelink.blob.core.windows.net` | Blob Storage |
-| `privatelink.file.core.windows.net` | File Storage |
-| `privatelink.vaultcore.azure.net` | Key Vault |
-| `privatelink.openai.azure.com` | Azure OpenAI |
-| `privatelink.cognitiveservices.azure.com` | Cognitive Services |
-| `privatelink.search.windows.net` | AI Search |
-| `privatelink.azurecr.io` | Container Registry |
+모든 Private DNS Zone은 **양쪽 VNet(East US, Korea Central)에 연결**되어 Jumpbox에서 프라이빗 엔드포인트로 DNS 해석이 가능합니다.
+
+| DNS 영역 | 용도 | 연결된 리소스 |
+|----------|------|--------------|
+| `privatelink.api.azureml.ms` | AI Foundry Hub API | aihub-foundry |
+| `privatelink.notebooks.azure.net` | AI Foundry Notebooks | aihub-foundry |
+| `privatelink.blob.core.windows.net` | Blob Storage | staifoundry20260128 |
+| `privatelink.file.core.windows.net` | File Storage | staifoundry20260128 |
+| `privatelink.vaultcore.azure.net` | Key Vault | kv-aif-e8txcj4l |
+| `privatelink.openai.azure.com` | Azure OpenAI | aoai-aifoundry |
+| `privatelink.cognitiveservices.azure.com` | Cognitive Services | aoai-aifoundry |
+| `privatelink.search.windows.net` | AI Search | srch-aifoundry-7kkykgt6 |
+| `privatelink.azurecr.io` | Container Registry | acraifoundryb658f2ug |
+| `privatelink.azure-api.net` | API Management | apim-aifoundry-zj85lf |
+
+### VNet Peering 구성
+
+```mermaid
+flowchart LR
+    subgraph EUS["vnet-aifoundry<br/>East US<br/>10.0.0.0/16"]
+        EUS_Services["🔗 Private Endpoints<br/>AI Hub, OpenAI, Storage,<br/>Key Vault, AI Search, ACR"]
+    end
+
+    subgraph KRC["vnet-jumpbox-krc<br/>Korea Central<br/>10.1.0.0/16"]
+        KRC_VMs["🖥️ Jumpbox VMs<br/>Windows, Linux"]
+    end
+
+    EUS -->|"peer-main-to-jumpbox<br/>✅ allow_forwarded_traffic<br/>❌ allow_gateway_transit"| KRC
+    KRC -->|"peer-jumpbox-to-main<br/>✅ allow_forwarded_traffic<br/>❌ use_remote_gateways"| EUS
+
+    style EUS fill:#e6f2ff,stroke:#0078D4
+    style KRC fill:#fff2e6,stroke:#FF6B35
+```
+
+**VNet Peering 목적:**
+- Korea Central의 Jumpbox에서 East US의 AI Foundry 리소스에 **프라이빗 접근**
+- 양방향 peering으로 양쪽 VNet 간 통신 가능
+- Private DNS Zone이 양쪽에 연결되어 DNS 해석 가능
+
+### 트래픽 흐름
+
+```mermaid
+flowchart TB
+    User["👤 User"]
+    Portal["🌐 Azure Portal"]
+    Bastion["🛡️ Azure Bastion<br/>bastion-jumpbox-krc"]
+    
+    subgraph JumpboxVMs["🖥️ Jumpbox VMs (Korea Central)"]
+        WinVM["🪟 Windows VM<br/>10.1.1.4<br/>VS Code, Python, Azure CLI, Git"]
+        LinuxVM["🐧 Linux VM<br/>10.1.1.5<br/>vim, Python, Azure CLI, Docker"]
+    end
+    
+    Peering["🔄 VNet Peering"]
+    
+    subgraph PrivateEndpoints["🔗 Private Endpoints (10.0.1.x)"]
+        PE_Hub["pe-aihub"]
+        PE_OpenAI["pe-openai"]
+        PE_Storage["pe-storage"]
+        PE_KV["pe-keyvault"]
+        PE_Search["pe-search"]
+    end
+    
+    subgraph AzureServices["☁️ Azure Services (East US)"]
+        AIHub["🏠 AI Hub"]
+        OpenAI["🧠 OpenAI"]
+        Storage["💾 Storage"]
+        KeyVault["🔐 Key Vault"]
+        AISearch["🔍 AI Search"]
+    end
+
+    User -->|"1️⃣ HTTPS"| Portal
+    Portal -->|"2️⃣ Secure Tunnel"| Bastion
+    Bastion -->|"3️⃣ RDP (3389)"| WinVM
+    Bastion -->|"3️⃣ SSH (22)"| LinuxVM
+    WinVM --> Peering
+    LinuxVM --> Peering
+    Peering --> PrivateEndpoints
+    PE_Hub -->|"Private Link"| AIHub
+    PE_OpenAI -->|"Private Link"| OpenAI
+    PE_Storage -->|"Private Link"| Storage
+    PE_KV -->|"Private Link"| KeyVault
+    PE_Search -->|"Private Link"| AISearch
+
+    style User fill:#fff,stroke:#333
+    style Bastion fill:#107C10,color:#fff
+    style Peering fill:#FFB900,stroke:#333
+    style PrivateEndpoints fill:#f0e6ff,stroke:#7B2C8C
+    style AzureServices fill:#e6f2ff,stroke:#0078D4
+```
+
+### 네트워크 보안 핵심 원칙
+
+| 원칙 | 설명 | 구현 |
+|------|------|------|
+| **Zero Trust** | 모든 서비스는 Private Endpoint를 통해서만 접근 | 공용 엔드포인트 비활성화 |
+| **최소 권한** | 필요한 포트만 열고 기본 거부 | NSG 규칙 최소화 |
+| **Bastion 필수** | Jumpbox VM에 Public IP 없음 | Azure Bastion만 접근 허용 |
+| **DNS 통합** | 양쪽 VNet에 모든 Private DNS Zone 연결 | VNet Link 10개 × 2 VNet |
+| **아웃바운드 제어** | 기본 아웃바운드 차단 | `default_outbound_access_enabled = false` |
 
 ### Jumpbox 접근
 
@@ -334,9 +497,11 @@ Azure Bastion을 통해 안전하게 Jumpbox에 접근합니다:
 
 | 시나리오 | 월별 예상 비용 |
 |----------|---------------|
-| 최소 (유휴 상태) | ~$1,000 |
-| 일반 (개발 중) | ~$1,500 |
-| 최대 (활발한 사용) | ~$3,600 |
+| 최소 (유휴 상태) | ~$1,175 |
+| 일반 (개발 중) | ~$1,675 |
+| 최대 (활발한 사용) | ~$3,800 |
+
+> AI Search는 Private Endpoint 지원을 위해 Standard SKU를 사용합니다. Basic SKU로 변경 시 월 ~$171 절감 가능합니다.
 
 ## 라이선스
 

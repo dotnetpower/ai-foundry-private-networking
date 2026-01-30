@@ -14,7 +14,7 @@ applyTo: '**'
 ### 2. 보안 및 검증
 - **모든 외부 입력은 검증 및 무해화(sanitization) 필수**
 - **민감 정보 포함 금지**: 개인정보, 비밀번호, API 키 등
-- **기준 날짜**: 항상 현재 날짜 기준으로 설정 (오늘: 2026년 1월 28일)
+- **기준 날짜**: 항상 현재 날짜 기준으로 설정 (오늘: 2026년 1월 30일)
 - **문서 내 이모지 최소화**: 가독성 저하 방지
 - **사실에 근거**: 검증된 정보만 제공, 추측 금지
 
@@ -40,13 +40,17 @@ infra/
 │   └── dev/
 │       ├── terraform.tfvars     # 개발 환경 변수
 │       └── backend.tfvars       # 백엔드 설정
+├── scripts/
+│   ├── deploy.sh                # 배포 스크립트
+│   ├── import-resources.sh      # Terraform 상태 import 스크립트
+│   └── validate-terraform.sh    # 검증 스크립트
 └── modules/
     ├── networking/              # VNet, Subnet, NSG, Private DNS
     ├── ai-foundry/              # AI Hub, Project, Connections (azapi)
-    ├── storage/                 # Storage Account, Container Registry
-    ├── security/                # Key Vault, RBAC
+    ├── storage/                 # Storage Account, Container Registry, ACR DNS Link
+    ├── security/                # Key Vault, RBAC, Key Vault PE
     ├── monitoring/              # Application Insights, Log Analytics
-    ├── cognitive-services/      # Azure OpenAI, AI Search
+    ├── cognitive-services/      # Azure OpenAI, AI Search, Search DNS Link
     ├── jumpbox-krc/             # Korea Central Jumpbox VMs
     └── apim/                    # API Management (개발자 포털)
 src/
@@ -54,7 +58,7 @@ src/
 └── README.md                    # 시각화 사용 가이드
 ```
 
-## 배포된 인프라 현황 (2026년 1월 28일 기준)
+## 배포된 인프라 현황 (2026년 1월 30일 기준)
 
 ### 리전 분리 구성
 | 리전 | 리소스 |
@@ -90,21 +94,163 @@ src/
 - **IaC 도구**: Terraform v1.12.1, azurerm ~> 3.80, azapi ~> 1.10
 - **시각화**: Diagrams (Python 라이브러리, uv 패키지 매니저)
 
-### 1. 네트워킹 기반 리소스
-- **Virtual Network (VNet)**: AI Foundry 리소스 격리 네트워크
-- **Subnets**: 
-  - AI Foundry 서브넷 (Private Endpoint용)
-  - Jumpbox 서브넷
-  - Application Gateway 서브넷 (선택적)
-- **Network Security Groups (NSG)**: 서브넷별 트래픽 제어
-- **Private DNS Zones**: 프라이빗 엔드포인트 DNS 확인
-  - `privatelink.api.azureml.ms`
-  - `privatelink.notebooks.azure.net`
-  - `privatelink.blob.core.windows.net`
-  - `privatelink.file.core.windows.net`
-  - `privatelink.vaultcore.azure.net`
-  - `privatelink.cognitiveservices.azure.com`
-  - `privatelink.openai.azure.com`
+### 1. 네트워킹 기반 리소스 (상세)
+
+#### 1.1 Virtual Network 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           East US (메인 리전)                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    vnet-aifoundry (10.0.0.0/16)                     │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  snet-aifoundry (10.0.1.0/24) - Private Endpoints 전용      │   │   │
+│  │  │  - pe-aihub (AI Foundry Hub)                                │   │   │
+│  │  │  - pe-storage-blob, pe-storage-file (Storage)               │   │   │
+│  │  │  - pe-keyvault (Key Vault)                                  │   │   │
+│  │  │  - pe-openai, pe-search (Cognitive Services)                │   │   │
+│  │  │  - pe-acr (Container Registry)                              │   │   │
+│  │  │  - pe-apim (API Management)                                 │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  snet-jumpbox (10.0.2.0/24) - East US Jumpbox (미사용)      │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                          VNet Peering (양방향)
+                                    │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Korea Central (Jumpbox 리전)                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                  vnet-jumpbox-krc (10.1.0.0/16)                     │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  snet-jumpbox (10.1.1.0/24) - Jumpbox VMs                   │   │   │
+│  │  │  - vm-jb-win-krc (10.1.1.4) - Windows 11 개발 PC            │   │   │
+│  │  │  - vm-jumpbox-linux-krc (10.1.1.5) - Ubuntu 22.04           │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  AzureBastionSubnet (10.1.255.0/26) - Bastion Host 전용     │   │   │
+│  │  │  - bastion-jumpbox-krc (Public IP 보유)                     │   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 1.2 VNet 및 서브넷 상세
+
+| VNet | 리전 | 주소 공간 | 용도 |
+|------|------|-----------|------|
+| `vnet-aifoundry` | East US | 10.0.0.0/16 | AI Foundry 및 관련 서비스 |
+| `vnet-jumpbox-krc` | Korea Central | 10.1.0.0/16 | 개발자 Jumpbox 및 Bastion |
+
+| 서브넷 | VNet | 주소 범위 | 용도 |
+|--------|------|-----------|------|
+| `snet-aifoundry` | vnet-aifoundry | 10.0.1.0/24 | Private Endpoints (254개 IP) |
+| `snet-jumpbox` | vnet-aifoundry | 10.0.2.0/24 | East US Jumpbox (예비) |
+| `snet-jumpbox` | vnet-jumpbox-krc | 10.1.1.0/24 | Jumpbox VMs (254개 IP) |
+| `AzureBastionSubnet` | vnet-jumpbox-krc | 10.1.255.0/26 | Azure Bastion 전용 (필수 이름) |
+
+#### 1.3 VNet Peering 구성
+
+```
+vnet-aifoundry (East US) <──────────────────> vnet-jumpbox-krc (Korea Central)
+      │                                                │
+      │  peer-main-to-jumpbox                          │  peer-jumpbox-to-main
+      │  - allow_forwarded_traffic: true               │  - allow_forwarded_traffic: true
+      │  - allow_gateway_transit: false                │  - use_remote_gateways: false
+      └────────────────────────────────────────────────┘
+```
+
+- **목적**: Korea Central의 Jumpbox에서 East US의 AI Foundry 리소스에 프라이빗 접근
+- **양방향 설정**: 양쪽 VNet 모두에 peering 리소스 생성 필요
+- **DNS 해석**: Korea Central VNet에도 모든 Private DNS Zone 연결 필요
+
+#### 1.4 Network Security Groups (NSG) 상세
+
+**NSG: `nsg-aifoundry` (East US AI Foundry 서브넷)**
+
+| 우선순위 | 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
+|----------|------|------|------|------|------|------|------|
+| 100 | AllowAPIMManagement | Inbound | 3443 | ApiManagement | VNet | Allow | APIM 관리 엔드포인트 (필수) |
+| 110 | AllowAzureLoadBalancer | Inbound | 6390 | AzureLB | VNet | Allow | Azure LB Health Probe |
+| 120 | AllowHTTPS | Inbound | 443 | VNet | * | Allow | HTTPS 트래픽 |
+| 130 | AllowAPIMGateway | Inbound | 443 | Internet | VNet | Allow | APIM Gateway |
+| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
+
+**NSG: `nsg-jumpbox-krc` (Korea Central Jumpbox 서브넷)**
+
+| 우선순위 | 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
+|----------|------|------|------|------|------|------|------|
+| 100 | AllowRDPFromBastion | Inbound | 3389 | 10.1.255.0/26 | * | Allow | Bastion → Windows RDP |
+| 110 | AllowSSHFromBastion | Inbound | 22 | 10.1.255.0/26 | * | Allow | Bastion → Linux SSH |
+| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
+| 100 | AllowEastUSVNet | Outbound | * | 10.1.0.0/16 | 10.0.0.0/16 | Allow | East US VNet 접근 |
+| 200 | AllowInternet | Outbound | * | * | Internet | Allow | 패키지 설치용 |
+
+#### 1.5 Private DNS Zones 상세
+
+| DNS Zone | 용도 | 연결된 VNet |
+|----------|------|-------------|
+| `privatelink.api.azureml.ms` | AI Foundry Hub API | East US + Korea Central |
+| `privatelink.notebooks.azure.net` | AI Foundry Notebooks | East US + Korea Central |
+| `privatelink.blob.core.windows.net` | Storage Blob | East US + Korea Central |
+| `privatelink.file.core.windows.net` | Storage File Share | East US + Korea Central |
+| `privatelink.vaultcore.azure.net` | Key Vault | East US + Korea Central |
+| `privatelink.cognitiveservices.azure.com` | Cognitive Services | East US + Korea Central |
+| `privatelink.openai.azure.com` | Azure OpenAI | East US + Korea Central |
+| `privatelink.azurecr.io` | Container Registry | East US + Korea Central |
+| `privatelink.search.windows.net` | AI Search | East US + Korea Central |
+| `privatelink.azure-api.net` | API Management | East US + Korea Central |
+
+**DNS 해석 흐름:**
+```
+Jumpbox (Korea Central) → Private DNS Zone VNet Link → Private Endpoint IP (East US)
+                                                               │
+                                                               ▼
+                                                    Azure Service (Private)
+```
+
+#### 1.6 Azure Bastion 구성
+
+- **SKU**: Standard (Native Client 지원)
+- **Public IP**: `pip-bastion-krc` (Static, Standard SKU)
+- **기능**:
+  - `tunneling_enabled = true`: Native RDP/SSH 클라이언트 지원
+  - `ip_connect_enabled = true`: IP 주소로 직접 연결 가능
+- **접근 방법**:
+  - Azure Portal → Bastion → Connect
+  - CLI: `az network bastion rdp --name bastion-jumpbox-krc --resource-group rg-aifoundry-20260128 --target-resource-id <vm-id>`
+
+#### 1.7 트래픽 흐름도
+
+```
+[사용자] ──HTTPS──> [Azure Portal/Bastion Public IP]
+                            │
+                            ▼
+              [Azure Bastion (10.1.255.0/26)]
+                            │
+                      RDP(3389)/SSH(22)
+                            │
+                            ▼
+              [Jumpbox VM (10.1.1.x)]
+                            │
+                    VNet Peering
+                            │
+                            ▼
+              [Private Endpoint (10.0.1.x)]
+                            │
+                            ▼
+              [Azure Service (AI Foundry, OpenAI, etc.)]
+```
+
+#### 1.8 네트워크 보안 핵심 포인트
+
+1. **Zero Trust 접근**: 모든 서비스는 Private Endpoint를 통해서만 접근
+2. **Bastion 필수**: Jumpbox VM에 Public IP 없음, Bastion을 통해서만 접근
+3. **NSG 최소 권한**: 필요한 포트만 열고 기본 거부
+4. **DNS 통합**: 양쪽 VNet에 모든 Private DNS Zone 연결
+5. **아웃바운드 제어**: `default_outbound_access_enabled = false`로 기본 아웃바운드 차단
 
 ### 2. AI Foundry 핵심 리소스
 - **AI Foundry Hub**: 중앙 관리 허브 (azapi, kind=Hub)
@@ -122,14 +268,15 @@ src/
 - **Application Insights**: 모니터링 및 로깅
 - **Container Registry**: 커스텀 컨테이너 이미지
 
-### 4. 프라이빗 엔드포인트 (각 서비스별)
-- AI Hub Private Endpoint
-- Storage Account Private Endpoints (blob, file, queue, table)
-- Key Vault Private Endpoint
-- Container Registry Private Endpoint
-- Azure OpenAI Private Endpoint
-- Azure AI Search Private Endpoint
+### 4. 프라이빗 엔드포인트 및 DNS VNet Links (Microsoft 권장 사항 준수)
+- AI Hub Private Endpoint (`pe-aihub`)
+- Storage Account Private Endpoints (`pe-storage-blob`, `pe-storage-file`)
+- Key Vault Private Endpoint (`pe-keyvault`) - security 모듈
+- Container Registry Private Endpoint (`pe-acr`) + DNS VNet Link (`link-acr`) - storage 모듈
+- Azure OpenAI Private Endpoint (`pe-openai`)
+- Azure AI Search Private Endpoint (`pe-search`) + DNS VNet Link (`link-search`) - cognitive-services 모듈
 - Cognitive Services Private Endpoint
+- Korea Central VNet에 모든 Private DNS Zone VNet Links 연결
 
 ### 5. 관리 및 접근 리소스
 - **Jumpbox VMs (Korea Central)**: 
@@ -205,3 +352,9 @@ src/
 - **AI Foundry Compute Cluster**: AmlCompute는 Project가 아닌 Hub에 생성해야 함
 - **OpenAI Connection ApiType**: `metadata`에 `ApiType = "azure"` 필수 (~~누락 시 ValidationError~~)
 - **Windows Extension Chocolatey**: choco 설치 후 `C:\ProgramData\chocolatey\bin\choco.exe` 전체 경로 사용 필요
+- **random_string 재생성 방지**: `lifecycle { ignore_changes = [special, upper, length] }` 추가 필수
+- **Subnet NSG Association Import**: 기존 Azure 리소스를 Terraform으로 관리 시 `terraform import` 필요
+- **Private DNS Zone VNet Link**: 각 VNet(East US, Korea Central)에 모든 Private DNS Zone 연결 필요
+- **Subnet default_outbound_access_enabled**: 서브넷에 명시적으로 `default_outbound_access_enabled = false` 설정하여 drift 방지
+- **AI Foundry Connection AAD 인증**: Azure Policy로 Key 인증 비활성화 시 `authType = "AAD"` 사용, Hub MI에 역할 할당 필요
+- **Cognitive Services disableLocalAuth**: 구독 정책으로 강제 시 변경 불가, AAD 인증만 사용 가능

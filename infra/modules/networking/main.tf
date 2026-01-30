@@ -9,20 +9,22 @@ resource "azurerm_virtual_network" "main" {
 
 # AI Foundry 서브넷
 resource "azurerm_subnet" "ai_foundry" {
-  name                 = "snet-aifoundry"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = var.subnet_config["ai_foundry"].address_prefixes
-  service_endpoints    = var.subnet_config["ai_foundry"].service_endpoints
+  name                            = "snet-aifoundry"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.main.name
+  address_prefixes                = var.subnet_config["ai_foundry"].address_prefixes
+  service_endpoints               = var.subnet_config["ai_foundry"].service_endpoints
+  default_outbound_access_enabled = false
 }
 
 # Jumpbox 서브넷
 resource "azurerm_subnet" "jumpbox" {
-  name                 = "snet-jumpbox"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = var.subnet_config["jumpbox"].address_prefixes
-  service_endpoints    = var.subnet_config["jumpbox"].service_endpoints
+  name                            = "snet-jumpbox"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.main.name
+  address_prefixes                = var.subnet_config["jumpbox"].address_prefixes
+  service_endpoints               = var.subnet_config["jumpbox"].service_endpoints
+  default_outbound_access_enabled = false
 }
 
 # Network Security Group - AI Foundry

@@ -18,6 +18,11 @@ variable "subnet_id" {
   type        = string
 }
 
+variable "vnet_id" {
+  description = "Virtual Network ID (DNS Zone VNet 링크용)"
+  type        = string
+}
+
 variable "private_dns_zone_ids" {
   description = "Private DNS Zone ID 맵"
   type        = map(string)

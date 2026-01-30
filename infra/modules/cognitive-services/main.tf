@@ -7,6 +7,7 @@ resource "azurerm_cognitive_account" "openai" {
   sku_name                      = "S0"
   custom_subdomain_name         = "aoai-aifoundry-${random_string.openai_suffix.result}"
   public_network_access_enabled = false
+  local_auth_enabled            = true # API Key 인증 활성화
 
   network_acls {
     default_action = "Deny"
@@ -24,6 +25,10 @@ resource "random_string" "openai_suffix" {
   length  = 8
   special = false
   upper   = false
+
+  lifecycle {
+    ignore_changes = [special, upper, length]
+  }
 }
 
 # OpenAI Deployment - GPT-4o (최신 GA 버전: 2024-11-20)
@@ -101,6 +106,10 @@ resource "random_string" "suffix" {
   length  = 8
   special = false
   upper   = false
+
+  lifecycle {
+    ignore_changes = [special, upper, length]
+  }
 }
 
 # Private Endpoint for AI Search
@@ -131,4 +140,13 @@ resource "azurerm_private_dns_zone" "search" {
   name                = "privatelink.search.windows.net"
   resource_group_name = var.resource_group_name
   tags                = var.tags
+}
+
+# Private DNS Zone VNet Link for AI Search
+resource "azurerm_private_dns_zone_virtual_network_link" "search" {
+  name                  = "link-search"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.search.name
+  virtual_network_id    = var.vnet_id
+  tags                  = var.tags
 }

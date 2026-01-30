@@ -90,7 +90,7 @@ uv run visualize_infrastructure.py
 
 ### 네트워킹
 - **VNet Peering**: Korea Central ↔ East US
-- **Private DNS Zones** (9개):
+- **Private DNS Zones** (10개):
   - `privatelink.api.azureml.ms`
   - `privatelink.notebooks.azure.net`
   - `privatelink.blob.core.windows.net`
@@ -100,6 +100,7 @@ uv run visualize_infrastructure.py
   - `privatelink.openai.azure.com`
   - `privatelink.search.windows.net`
   - `privatelink.azurecr.io`
+  - `privatelink.azure-api.net`
 
 ## 접근 방법
 

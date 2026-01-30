@@ -26,8 +26,8 @@
 | Bastion | `bastion-jumpbox-krc` | 배포 완료 |
 | Log Analytics | `log-aifoundry` | 배포 완료 |
 | Application Insights | `appi-aifoundry` | 배포 완료 |
-| Private Endpoints | 7개 | 배포 완료 |
-| Private DNS Zones | 9개 | 배포 완료 |
+| Private Endpoints | 8개 | 배포 완료 |
+| Private DNS Zones | 10개 | 배포 완료 |
 
 ---
 

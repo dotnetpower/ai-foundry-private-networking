@@ -323,3 +323,79 @@ resource "azurerm_linux_virtual_machine" "main" {
   EOF
   )
 }
+
+# =============================================================================
+# Private DNS Zone Links (Korea Central VNet에 연결)
+# East US의 Private DNS Zone을 Korea Central VNet에서도 해석 가능하게 함
+# =============================================================================
+
+resource "azurerm_private_dns_zone_virtual_network_link" "apim_krc" {
+  name                  = "link-apim-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.azure-api.net"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "azureml_krc" {
+  name                  = "link-azureml-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.api.azureml.ms"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "notebooks_krc" {
+  name                  = "link-notebooks-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.notebooks.azure.net"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "blob_krc" {
+  name                  = "link-blob-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.blob.core.windows.net"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "vault_krc" {
+  name                  = "link-vault-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.vaultcore.azure.net"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "openai_krc" {
+  name                  = "link-openai-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.openai.azure.com"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "cogservices_krc" {
+  name                  = "link-cogservices-krc"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = "privatelink.cognitiveservices.azure.com"
+  virtual_network_id    = azurerm_virtual_network.jumpbox.id
+  tags                  = var.tags
+
+  depends_on = [var.private_dns_zone_ids]
+}
+

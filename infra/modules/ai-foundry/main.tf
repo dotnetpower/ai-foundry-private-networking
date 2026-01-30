@@ -16,7 +16,7 @@ resource "azapi_resource" "hub" {
   type      = "Microsoft.MachineLearningServices/workspaces@2024-04-01"
   name      = "aihub-foundry"
   location  = var.location
-  parent_id = var.resource_group_id  # data source 대신 직접 변수 사용
+  parent_id = var.resource_group_id # data source 대신 직접 변수 사용
 
   identity {
     type = "SystemAssigned"
@@ -48,7 +48,7 @@ resource "azapi_resource" "project" {
   type      = "Microsoft.MachineLearningServices/workspaces@2024-04-01"
   name      = "aiproj-agents"
   location  = var.location
-  parent_id = var.resource_group_id  # data source 대신 직접 변수 사용
+  parent_id = var.resource_group_id # data source 대신 직접 변수 사용
 
   identity {
     type = "SystemAssigned"
@@ -74,6 +74,29 @@ resource "azapi_resource" "project" {
 
   response_export_values = ["properties.workspaceId"]
 }
+
+# =============================================================================
+# RBAC 역할 할당 (AAD 인증용)
+# =============================================================================
+
+# AI Hub에 Azure OpenAI 접근 권한 부여
+resource "azurerm_role_assignment" "hub_openai_user" {
+  scope                = var.openai_resource_id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azapi_resource.hub.identity[0].principal_id
+}
+
+# AI Hub에 AI Search 접근 권한 부여
+resource "azurerm_role_assignment" "hub_search_reader" {
+  count                = var.ai_search_id != "" ? 1 : 0
+  scope                = var.ai_search_id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = azapi_resource.hub.identity[0].principal_id
+}
+
+# =============================================================================
+# Private Endpoints
+# =============================================================================
 
 # Private Endpoint for AI Hub
 resource "azurerm_private_endpoint" "ai_hub" {
@@ -151,7 +174,7 @@ resource "azurerm_private_endpoint" "ai_hub" {
 #   depends_on = [azapi_resource.hub]
 # }
 
-# AI Foundry Hub에 Azure OpenAI 연결
+# AI Foundry Hub에 Azure OpenAI 연결 (Managed Identity 인증)
 resource "azapi_resource" "openai_connection" {
   type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-04-01"
   name      = "aoai-connection"
@@ -161,13 +184,10 @@ resource "azapi_resource" "openai_connection" {
     properties = {
       category      = "AzureOpenAI"
       target        = var.openai_endpoint
-      authType      = "ApiKey"
+      authType      = "AAD"  # Managed Identity 인증으로 변경
       isSharedToAll = true
-      credentials = {
-        key = var.openai_api_key
-      }
       metadata = {
-        ApiType    = "azure"       # 필수 속성 추가
+        ApiType    = "azure"
         ApiVersion = "2024-02-15-preview"
         ResourceId = var.openai_resource_id
       }
@@ -177,22 +197,19 @@ resource "azapi_resource" "openai_connection" {
   depends_on = [azapi_resource.hub]
 }
 
-# AI Search 연결 (RAG 패턴용)
+# AI Search 연결 (RAG 패턴용) - Managed Identity 인증
 resource "azapi_resource" "search_connection" {
   count     = var.ai_search_endpoint != "" ? 1 : 0
   type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-04-01"
-  name      = "aisearch-connection"  # 이름 변경 (purge protection 충돌 해결)
+  name      = "aisearch-connection"
   parent_id = azapi_resource.hub.id
 
   body = jsonencode({
     properties = {
       category      = "CognitiveSearch"
       target        = var.ai_search_endpoint
-      authType      = "ApiKey"
+      authType      = "AAD"  # Managed Identity 인증으로 변경
       isSharedToAll = true
-      credentials = {
-        key = var.ai_search_api_key
-      }
     }
   })
 
