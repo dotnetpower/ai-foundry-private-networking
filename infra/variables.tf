@@ -62,10 +62,11 @@ variable "jumpbox_admin_username" {
 }
 
 variable "jumpbox_admin_password" {
-  description = "Jumpbox 관리자 비밀번호"
+  description = "Jumpbox 관리자 비밀번호 (환경 변수로 설정: export TF_VAR_jumpbox_admin_password='YourSecurePassword')"
   type        = string
   sensitive   = true
-  default     = "P@ssw0rd1234!ChangeMe"
+  # 보안상 기본값 제거 - 반드시 환경 변수 또는 tfvars 파일로 제공 필요
+  # 최소 요구사항: 12자 이상, 대소문자, 숫자, 특수문자 포함
 }
 
 variable "publisher_email" {

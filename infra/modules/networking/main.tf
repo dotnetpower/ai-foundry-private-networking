@@ -73,6 +73,8 @@ resource "azurerm_network_security_group" "ai_foundry" {
   }
 
   # APIM Gateway 포트 (Internal VNet 모드)
+  # 참고: APIM은 Internal 모드로 구성되어 있으나, APIM 개발자 포털 접근을 위해 Internet 소스 허용
+  # 보안 고려사항: APIM 자체 인증 및 권한 부여 메커니즘으로 보호됨
   security_rule {
     name                       = "AllowAPIMGateway"
     priority                   = 130
@@ -98,7 +100,10 @@ resource "azurerm_network_security_group" "ai_foundry" {
   }
 }
 
-# Network Security Group - Jumpbox
+# Network Security Group - Jumpbox (East US - 현재 미사용)
+# 참고: 실제 Jumpbox는 Korea Central 리전에 배포되어 있으며 jumpbox-krc 모듈에서 관리됨
+# 이 NSG는 향후 East US 리전에 Jumpbox가 필요할 경우를 대비한 템플릿입니다.
+# 보안 권장사항: RDP/SSH는 특정 IP 범위 또는 Azure Bastion 서브넷으로 제한 필요
 resource "azurerm_network_security_group" "jumpbox" {
   name                = "nsg-jumpbox"
   location            = var.location
@@ -113,7 +118,7 @@ resource "azurerm_network_security_group" "jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3389"
-    source_address_prefix      = "*"
+    source_address_prefix      = "*"  # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
     destination_address_prefix = "*"
   }
 
@@ -125,7 +130,7 @@ resource "azurerm_network_security_group" "jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "*"
+    source_address_prefix      = "*"  # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
     destination_address_prefix = "*"
   }
 }
