@@ -240,6 +240,10 @@ az network watcher flow-log create \
 
 Azure 인프라에 대한 침투 테스트는 사전 알림 없이 수행 가능하나, [Azure 침투 테스트 규칙](https://www.microsoft.com/en-us/msrc/pentest-rules-of-engagement)을 준수해야 합니다.
 
+> **참고**: Microsoft는 정기적으로 침투 테스트 가이드라인을 업데이트합니다. 테스트 전 최신 규칙을 확인하세요.
+> - 최신 규칙: https://www.microsoft.com/en-us/msrc/pentest-rules-of-engagement
+> - 한국어 보안 공지: https://www.microsoft.com/ko-kr/msrc
+
 ### 금지된 활동
 
 - ❌ DoS/DDoS 공격
