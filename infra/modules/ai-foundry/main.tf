@@ -184,7 +184,7 @@ resource "azapi_resource" "openai_connection" {
     properties = {
       category      = "AzureOpenAI"
       target        = var.openai_endpoint
-      authType      = "AAD"  # Managed Identity 인증으로 변경
+      authType      = "AAD" # Managed Identity 인증으로 변경
       isSharedToAll = true
       metadata = {
         ApiType    = "azure"
@@ -208,7 +208,7 @@ resource "azapi_resource" "search_connection" {
     properties = {
       category      = "CognitiveSearch"
       target        = var.ai_search_endpoint
-      authType      = "AAD"  # Managed Identity 인증으로 변경
+      authType      = "AAD" # Managed Identity 인증으로 변경
       isSharedToAll = true
     }
   })

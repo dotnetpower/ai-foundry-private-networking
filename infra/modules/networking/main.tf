@@ -118,7 +118,7 @@ resource "azurerm_network_security_group" "jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3389"
-    source_address_prefix      = "*"  # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
+    source_address_prefix      = "*" # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
     destination_address_prefix = "*"
   }
 
@@ -130,7 +130,7 @@ resource "azurerm_network_security_group" "jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "*"  # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
+    source_address_prefix      = "*" # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
     destination_address_prefix = "*"
   }
 }
