@@ -491,6 +491,23 @@ Azure Bastion을 통해 안전하게 Jumpbox에 접근합니다:
 2. Windows VM (`10.1.1.4`) 또는 Linux VM (`10.1.1.5`) 선택
 3. 자격 증명 입력 후 연결
 
+**자세한 접속 가이드**: [docs/troubleshooting-ai-foundry-access.md](docs/troubleshooting-ai-foundry-access.md)
+
+## 문서
+
+### 필수 문서
+
+- **[Jumpbox 접속 및 문제 해결 가이드](docs/troubleshooting-ai-foundry-access.md)**: Azure Bastion을 통한 Jumpbox 접속, AI Foundry 접근 방법, 네트워크 진단 및 문제 해결
+- **[보안 모범 사례](docs/security-best-practices.md)**: 자격 증명 관리, SSH 키 인증, Terraform State 보호, 네트워크 보안 설정
+- **[비용 추정](docs/cost-estimation.md)**: 리소스별 예상 비용 및 절감 방안
+- **[AI Search RAG 가이드](docs/ai-search-rag-guide.md)**: AI Search를 활용한 RAG(Retrieval Augmented Generation) 패턴 구현 가이드
+
+### 인프라 문서
+
+- **[인프라 README](infra/README.md)**: Terraform 배포 상세 가이드
+- **[스크립트 README](infra/scripts/README.md)**: 자동화 스크립트 사용법
+- **[오류 요약](infra/ERROR_SUMMARY.md)**: Terraform 배포 중 발생 가능한 오류 및 해결 방법
+
 ## 비용
 
 예상 월간 비용에 대한 자세한 내용은 [docs/cost-estimation.md](docs/cost-estimation.md)를 참조하세요.
