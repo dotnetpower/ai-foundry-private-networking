@@ -1,0 +1,29 @@
+# 환경 변수 (필요에 따라 수정)
+location             = "eastus"
+resource_group_name  = "rg-aifoundry-agent-test"
+ai_services_name     = "aiservices"
+project_name         = "project"
+project_description  = "AI Foundry Agent Project with Private Network"
+display_name         = "Network Secured Agent Project"
+
+# 모델 설정
+model_name     = "gpt-4o"
+model_format   = "OpenAI"
+model_version  = "2024-11-20"
+model_sku_name = "GlobalStandard"
+model_capacity = 30
+
+# 네트워킹 설정
+vnet_name           = "vnet-agent"
+vnet_address_prefix = "10.0.0.0/16"
+agent_subnet_name   = "agent-subnet"
+agent_subnet_prefix = "10.0.0.0/24"
+pe_subnet_name      = "pe-subnet"
+pe_subnet_prefix    = "10.0.1.0/24"
+
+# 태그
+tags = {
+  Environment = "Development"
+  Project     = "AI-Foundry-Agent"
+  ManagedBy   = "Terraform"
+}

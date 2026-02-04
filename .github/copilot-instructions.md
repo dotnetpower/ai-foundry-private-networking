@@ -358,3 +358,11 @@ Jumpbox (Korea Central) → Private DNS Zone VNet Link → Private Endpoint IP (
 - **Subnet default_outbound_access_enabled**: 서브넷에 명시적으로 `default_outbound_access_enabled = false` 설정하여 drift 방지
 - **AI Foundry Connection AAD 인증**: Azure Policy로 Key 인증 비활성화 시 `authType = "AAD"` 사용, Hub MI에 역할 할당 필요
 - **Cognitive Services disableLocalAuth**: 구독 정책으로 강제 시 변경 불가, AAD 인증만 사용 가능
+- **Capability Host (Standard Agent Setup)**: 
+  - `Microsoft.CognitiveServices/accounts` (kind=AIServices) 사용 필수, `Microsoft.MachineLearningServices/workspaces` 아님
+  - Agent 서브넷에 `Microsoft.App/environments` 위임 필수 (서브넷 크기 최소 /24)
+  - Project에 CosmosDB, Storage, AI Search Connections 먼저 생성
+  - RBAC 역할 할당 완료 후 Capability Host 생성 (순서 중요!)
+  - azapi preview API 사용 시 `schema_validation_enabled = false` 추가
+  - 삭제 시 Account Purge 필수, 그렇지 않으면 "Subnet already in use" 오류 발생
+- **CapabilityHostOperationFailed**: RBAC 미할당, Private Endpoint 미완료, 또는 Connection 설정 오류가 원인
