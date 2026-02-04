@@ -1,0 +1,53 @@
+# ============================================================================
+# Example Terraform Variables
+# Copy this file to terraform.tfvars and update values as needed
+# ============================================================================
+
+# General Settings
+location            = "eastus"
+resource_group_name = "rg-ai-foundry-agent"
+environment         = "dev"
+
+tags = {
+  Project   = "AI-Foundry-Agent"
+  Owner     = "your-team"
+  CostCenter = "your-cost-center"
+}
+
+# AI Services Settings
+ai_services_name = "aiservices"
+model_name       = "gpt-4.1"
+model_format     = "OpenAI"
+model_version    = "2025-04-14"
+model_sku_name   = "GlobalStandard"
+model_capacity   = 30
+
+# Project Settings
+first_project_name  = "project"
+project_description = "A project for the AI Foundry account with network secured deployed Agent"
+display_name        = "network secured agent project"
+project_cap_host    = "caphostproj"
+
+# Networking Settings
+vnet_name           = "agent-vnet"
+vnet_address_prefix = "192.168.0.0/16"
+agent_subnet_name   = "agent-subnet"
+agent_subnet_prefix = ""  # Leave empty to auto-calculate (192.168.0.0/24)
+pe_subnet_name      = "pe-subnet"
+pe_subnet_prefix    = ""  # Leave empty to auto-calculate (192.168.1.0/24)
+
+# Existing Resources (Optional - leave empty to create new)
+existing_vnet_resource_id           = ""
+ai_search_resource_id               = ""
+azure_storage_account_resource_id   = ""
+azure_cosmos_db_account_resource_id = ""
+
+# Existing DNS Zones (leave empty to create new)
+existing_dns_zones = {
+  "privatelink.services.ai.azure.com"       = ""
+  "privatelink.openai.azure.com"            = ""
+  "privatelink.cognitiveservices.azure.com" = ""
+  "privatelink.search.windows.net"          = ""
+  "privatelink.blob.core.windows.net"       = ""
+  "privatelink.documents.azure.com"         = ""
+}

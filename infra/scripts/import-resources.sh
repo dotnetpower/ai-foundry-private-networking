@@ -3,7 +3,7 @@
 
 set -e
 
-cd /home/moonchoi/dev/ai-foundry-private-networking/infra
+cd /home/dotnetpower/dev/ai-foundry-private-networking/infra
 
 SUBSCRIPTION="b052302c-4c8d-49a4-aa2f-9d60a7301a80"
 RG="rg-aifoundry-20260128"
