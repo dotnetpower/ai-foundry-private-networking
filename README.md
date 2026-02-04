@@ -263,31 +263,68 @@ graph LR
 
 ## 시작하기
 
-### 사전 요구사항
+### 🚀 빠른 시작 (5분 배포)
+
+```bash
+# 1. 프로젝트 클론
+git clone https://github.com/dotnetpower/ai-foundry-private-networking.git
+cd ai-foundry-private-networking
+
+# 2. Azure 로그인
+az login
+az account set --subscription "<구독-ID>"
+
+# 3. 배포 (자동)
+cd infra
+./scripts/deploy.sh
+
+# 4. Jumpbox 접속 (Azure Bastion)
+az network bastion rdp \
+  --name bastion-jumpbox-krc \
+  --resource-group rg-aifoundry-$(date +%Y%m%d) \
+  --target-resource-id $(az vm show -g rg-aifoundry-$(date +%Y%m%d) -n vm-jb-win-krc --query id -o tsv)
+
+# 5. Jumpbox에서 오프라인 설정 (Windows PowerShell)
+cd C:\Users\azureuser\Downloads
+# 이 리포지토리에서 스크립트를 다운로드하여 실행:
+.\jumpbox-offline-deploy.ps1
+
+# 6. 배포 검증
+./scripts/verify-deployment.sh
+```
+
+**예상 시간**:
+- Terraform 배포: 40-60분 (APIM 포함 시 60-90분)
+- Jumpbox 설정: 5-10분
+- 검증: 2-3분
+
+### 📋 사전 요구사항
 
 - [Terraform](https://www.terraform.io/) v1.12.1 이상
 - [Azure CLI](https://docs.microsoft.com/cli/azure/) 최신 버전
-- Azure 구독 및 적절한 권한
+- Azure 구독 및 적절한 권한 (Contributor, User Access Administrator)
 - [uv](https://github.com/astral-sh/uv) (Python 시각화용, 선택사항)
 
-### 배포 방법
+### 📖 상세 배포 방법
 
-1. **Azure 로그인**
-   ```bash
-   az login
-   az account set --subscription "<구독-ID>"
-   ```
+상세한 배포 절차는 **[📘 배포 가이드](docs/deployment-guide.md)**를 참조하세요.
 
-2. **Terraform 초기화**
-   ```bash
-   cd infra
-   ./scripts/init-terraform.sh local
-   ```
+#### 1. Azure 로그인
+```bash
+az login
+az account set --subscription "<구독-ID>"
+```
 
-3. **배포 실행**
-   ```bash
-   ./scripts/deploy.sh
-   ```
+#### 2. Terraform 초기화
+```bash
+cd infra
+./scripts/init-terraform.sh local
+```
+
+#### 3. 배포 실행 (권장)
+```bash
+./scripts/deploy.sh
+```
 
 또는 수동으로:
 ```bash
@@ -295,7 +332,13 @@ terraform plan -var-file="environments/dev/terraform.tfvars"
 terraform apply -var-file="environments/dev/terraform.tfvars" -auto-approve
 ```
 
-### 인프라 시각화
+#### 4. 배포 검증
+```bash
+cd ../scripts
+./verify-deployment.sh
+```
+
+### 🎨 인프라 시각화
 
 Python diagrams 라이브러리를 사용하여 인프라 다이어그램을 생성할 수 있습니다:
 
@@ -495,17 +538,24 @@ Azure Bastion을 통해 안전하게 Jumpbox에 접근합니다:
 
 ## 문서
 
-### 필수 문서
+### 📖 배포 및 구성 가이드
+
+- **[📘 상세 배포 가이드](docs/deployment-guide.md)** ⭐ **NEW**: 모든 Terraform 명령어 단계별 상세 설명, 선택적 구성 옵션, Private Networking 필수 설정
+- **[📗 Office 파일 RAG 가이드](docs/office-file-rag-guide.md)** ⭐ **NEW**: Office 파일 업로드 → Blob Storage → AI Search → Playground 전체 시나리오 구현 가이드
+- **[🔧 Jumpbox 오프라인 배포 스크립트](scripts/README.md)** ⭐ **NEW**: 인터넷 제한 환경에서 실행 가능한 Bash/PowerShell 스크립트 (문서 생성, 업로드, 인덱싱 자동화)
+- **[✅ 배포 검증 스크립트](scripts/verify-deployment.sh)** ⭐ **NEW**: 7가지 테스트로 배포 상태 자동 검증 (DNS, Storage, Search, RAG 패턴)
+
+### 🔐 보안 및 운영 가이드
 
 - **[Jumpbox 접속 및 문제 해결 가이드](docs/troubleshooting-ai-foundry-access.md)**: Azure Bastion을 통한 Jumpbox 접속, AI Foundry 접근 방법, 네트워크 진단 및 문제 해결
 - **[보안 모범 사례](docs/security-best-practices.md)**: 자격 증명 관리, SSH 키 인증, Terraform State 보호, 네트워크 보안 설정
 - **[비용 추정](docs/cost-estimation.md)**: 리소스별 예상 비용 및 절감 방안
 - **[AI Search RAG 가이드](docs/ai-search-rag-guide.md)**: AI Search를 활용한 RAG(Retrieval Augmented Generation) 패턴 구현 가이드
 
-### 인프라 문서
+### ⚙️ 인프라 문서
 
 - **[인프라 README](infra/README.md)**: Terraform 배포 상세 가이드
-- **[스크립트 README](infra/scripts/README.md)**: 자동화 스크립트 사용법
+- **[스크립트 README](infra/scripts/README.md)**: Terraform 자동화 스크립트 사용법
 - **[오류 요약](infra/ERROR_SUMMARY.md)**: Terraform 배포 중 발생 가능한 오류 및 해결 방법
 
 ## 비용

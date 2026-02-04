@@ -126,11 +126,11 @@ module "ai_foundry" {
   # Azure OpenAI 연결 (AAD 인증 - Managed Identity)
   openai_resource_id = module.cognitive_services.openai_id
   openai_endpoint    = module.cognitive_services.openai_endpoint
-  openai_api_key     = ""  # AAD 인증 사용으로 불필요
+  openai_api_key     = "" # AAD 인증 사용으로 불필요
 
   # Azure AI Search 연결 (AAD 인증 - Managed Identity)
   ai_search_endpoint = module.cognitive_services.ai_search_endpoint
-  ai_search_api_key  = ""  # AAD 인증 사용으로 불필요
+  ai_search_api_key  = "" # AAD 인증 사용으로 불필요
   ai_search_id       = module.cognitive_services.ai_search_id
 
   depends_on = [module.cognitive_services]
