@@ -22,10 +22,11 @@ data "azurerm_client_config" "current" {}
 # ============================================================================
 
 resource "azapi_resource" "project" {
-  type      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
-  name      = var.project_name
-  location  = var.location
-  parent_id = var.account_id
+  type                      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
+  name                      = var.project_name
+  location                  = var.location
+  parent_id                 = var.account_id
+  schema_validation_enabled = false
 
   identity {
     type = "SystemAssigned"
@@ -49,9 +50,10 @@ resource "azapi_resource" "project" {
 
 # Cosmos DB Connection
 resource "azapi_resource" "connection_cosmos_db" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
-  name      = var.cosmos_db_name
-  parent_id = azapi_resource.project.id
+  type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  name                      = var.cosmos_db_name
+  parent_id                 = azapi_resource.project.id
+  schema_validation_enabled = false
 
   body = {
     properties = {
@@ -71,9 +73,10 @@ resource "azapi_resource" "connection_cosmos_db" {
 
 # Storage Account Connection
 resource "azapi_resource" "connection_storage" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
-  name      = var.storage_name
-  parent_id = azapi_resource.project.id
+  type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  name                      = var.storage_name
+  parent_id                 = azapi_resource.project.id
+  schema_validation_enabled = false
 
   body = {
     properties = {
@@ -93,9 +96,10 @@ resource "azapi_resource" "connection_storage" {
 
 # AI Search Connection
 resource "azapi_resource" "connection_ai_search" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
-  name      = var.ai_search_name
-  parent_id = azapi_resource.project.id
+  type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  name                      = var.ai_search_name
+  parent_id                 = azapi_resource.project.id
+  schema_validation_enabled = false
 
   body = {
     properties = {
@@ -118,9 +122,10 @@ resource "azapi_resource" "connection_ai_search" {
 # ============================================================================
 
 resource "azapi_resource" "capability_host" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview"
-  name      = var.project_cap_host_name
-  parent_id = azapi_resource.project.id
+  type                      = "Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview"
+  name                      = var.project_cap_host_name
+  parent_id                 = azapi_resource.project.id
+  schema_validation_enabled = false
 
   body = {
     properties = {
