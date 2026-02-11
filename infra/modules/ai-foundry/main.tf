@@ -86,6 +86,13 @@ resource "azurerm_role_assignment" "hub_openai_user" {
   principal_id         = azapi_resource.hub.identity[0].principal_id
 }
 
+# AI Project에 Azure OpenAI 접근 권한 부여
+resource "azurerm_role_assignment" "project_openai_contributor" {
+  scope                = var.openai_resource_id
+  role_definition_name = "Cognitive Services OpenAI Contributor"
+  principal_id         = azapi_resource.project.identity[0].principal_id
+}
+
 # AI Hub에 AI Search 접근 권한 부여
 resource "azurerm_role_assignment" "hub_search_reader" {
   count                = var.enable_ai_search ? 1 : 0
