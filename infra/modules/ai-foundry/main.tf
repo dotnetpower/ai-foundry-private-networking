@@ -34,6 +34,26 @@ resource "azapi_resource" "hub" {
       applicationInsights = var.application_insights_id
       managedNetwork = {
         isolationMode = "AllowInternetOutbound"
+        outboundRules = {
+          "managed-pe-openai" = {
+            type        = "PrivateEndpoint"
+            destination = {
+              serviceResourceId = var.openai_resource_id
+              subresourceTarget = "account"
+              sparkEnabled      = false
+              sparkStatus       = "Inactive"
+            }
+          }
+          "managed-pe-search" = {
+            type        = "PrivateEndpoint"
+            destination = {
+              serviceResourceId = var.ai_search_id
+              subresourceTarget = "searchService"
+              sparkEnabled      = false
+              sparkStatus       = "Inactive"
+            }
+          }
+        }
       }
     }
   })
@@ -90,6 +110,13 @@ resource "azurerm_role_assignment" "hub_openai_user" {
 resource "azurerm_role_assignment" "project_openai_contributor" {
   scope                = var.openai_resource_id
   role_definition_name = "Cognitive Services OpenAI Contributor"
+  principal_id         = azapi_resource.project.identity[0].principal_id
+}
+
+# AI Project에 Azure AI Developer 역할 부여 (Agent 기능용)
+resource "azurerm_role_assignment" "project_ai_developer" {
+  scope                = var.openai_resource_id
+  role_definition_name = "Azure AI Developer"
   principal_id         = azapi_resource.project.identity[0].principal_id
 }
 

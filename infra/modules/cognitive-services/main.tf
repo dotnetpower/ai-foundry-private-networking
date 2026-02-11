@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    azapi = {
+      source  = "azure/azapi"
+      version = "~> 1.10"
+    }
+  }
+}
+
 # Azure OpenAI Service
 resource "azurerm_cognitive_account" "openai" {
   name                          = "aoai-aifoundry"
@@ -18,6 +27,20 @@ resource "azurerm_cognitive_account" "openai" {
   }
 
   tags = var.tags
+}
+
+# OpenAI networkAcls bypass 설정 (azurerm은 bypass 미지원, azapi로 패치)
+resource "azapi_update_resource" "openai_bypass" {
+  type        = "Microsoft.CognitiveServices/accounts@2023-10-01-preview"
+  resource_id = azurerm_cognitive_account.openai.id
+
+  body = {
+    properties = {
+      networkAcls = {
+        bypass = "AzureServices"
+      }
+    }
+  }
 }
 
 # Random suffix for OpenAI subdomain (전역 고유성 보장)
