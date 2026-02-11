@@ -27,6 +27,10 @@ resource "azurerm_cognitive_account" "openai" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [network_acls]
+  }
 }
 
 # OpenAI networkAcls bypass 설정 (azurerm은 bypass 미지원, azapi로 패치)
@@ -37,7 +41,8 @@ resource "azapi_update_resource" "openai_bypass" {
   body = {
     properties = {
       networkAcls = {
-        bypass = "AzureServices"
+        defaultAction = "Deny"
+        bypass        = "AzureServices"
       }
     }
   }

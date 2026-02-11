@@ -160,6 +160,31 @@ module "ai_foundry" {
 }
 
 # =============================================================================
+# 사용자 RBAC 역할 할당 (AI Foundry Portal 접근용)
+# =============================================================================
+
+data "azurerm_client_config" "current" {}
+
+# AI Search - 사용자가 AI Foundry에서 Search 연결을 사용하려면 필수
+resource "azurerm_role_assignment" "user_search_index_data_reader" {
+  scope                = module.cognitive_services.ai_search_id
+  role_definition_name = "Search Index Data Reader"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_role_assignment" "user_search_index_data_contributor" {
+  scope                = module.cognitive_services.ai_search_id
+  role_definition_name = "Search Index Data Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_role_assignment" "user_search_service_contributor" {
+  scope                = module.cognitive_services.ai_search_id
+  role_definition_name = "Search Service Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# =============================================================================
 # Jumpbox 모듈 (Linux VM + Azure Bastion)
 # =============================================================================
 module "jumpbox" {

@@ -382,6 +382,34 @@ az cognitiveservices account show \
 > **참고**: Terraform `azurerm_cognitive_account`는 `network_acls.bypass` 속성을 지원하지 않습니다.
 > Terraform으로 관리하려면 `azapi_update_resource`를 사용하세요.
 
+> **[중요] AI Search 사용자 RBAC 역할 (AAD 인증 Connection 필수)**
+>
+> AI Foundry에서 AI Search 연결(`aisearch-connection`)이 **AAD(역할 기반) 인증**으로 설정된 경우,
+> 포털을 사용하는 사용자 계정에도 AI Search 리소스에 대한 RBAC 역할이 필요합니다.
+> 역할이 없으면 `"You do not have permission to access the resource"` 오류가 발생합니다.
+>
+> **필수 역할 (AI Search 리소스 범위)**:
+> | 역할 | 용도 |
+> |------|------|
+> | `Search Index Data Reader` | 인덱스 데이터 읽기 (최소 필수) |
+> | `Search Index Data Contributor` | 인덱스 데이터 읽기/쓰기 (문서 업로드 시 필요) |
+> | `Search Service Contributor` | 인덱스 생성/관리 (인덱스 스키마 관리 시 필요) |
+
+```bash
+# AI Search에 사용자 RBAC 역할 할당
+SEARCH_ID=$(az search service show --name <search-name> --resource-group <rg-name> --query id -o tsv)
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+
+az role assignment create --assignee "$USER_OID" --role "Search Index Data Reader" --scope "$SEARCH_ID"
+az role assignment create --assignee "$USER_OID" --role "Search Index Data Contributor" --scope "$SEARCH_ID"
+az role assignment create --assignee "$USER_OID" --role "Search Service Contributor" --scope "$SEARCH_ID"
+
+# 할당 확인
+az role assignment list --scope "$SEARCH_ID" --query "[].{role:roleDefinitionName, principal:principalName}" -o table
+```
+
+> **참고**: RBAC 역할 전파에 최대 5-10분이 소요될 수 있습니다. 할당 후 바로 접근이 안 되면 잠시 기다린 후 다시 시도하세요.
+
 ### Private DNS Zones
 
 | DNS Zone | 용도 |
