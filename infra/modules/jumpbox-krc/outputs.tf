@@ -1,11 +1,11 @@
 output "bastion_name" {
   description = "Azure Bastion 이름"
-  value       = azurerm_bastion_host.main.name
+  value       = try(azurerm_bastion_host.main[0].name, null)
 }
 
 output "bastion_dns_name" {
   description = "Azure Bastion DNS 이름"
-  value       = azurerm_bastion_host.main.dns_name
+  value       = try(azurerm_bastion_host.main[0].dns_name, null)
 }
 
 output "windows_jumpbox_private_ip" {
@@ -51,31 +51,17 @@ output "jumpbox_subnet_id" {
 output "connection_instructions" {
   description = "Jumpbox 접속 방법"
   value       = <<-EOT
-    # Azure Bastion을 통한 Jumpbox 접속 방법
+    # Jumpbox 접속 방법
     
-    ## 1. Azure Portal에서 접속
-    1. Azure Portal → Virtual Machines
-    2. vm-jb-win-krc 또는 vm-jumpbox-linux-krc 선택
-    3. Connect → Bastion 클릭
-    4. 사용자명/비밀번호 입력 후 연결
+    ## VM 정보
+    - Windows: ${azurerm_windows_virtual_machine.main.name} (Private IP: ${azurerm_network_interface.windows.private_ip_address})
+    - Linux: ${azurerm_linux_virtual_machine.main.name} (Private IP: ${azurerm_network_interface.linux.private_ip_address})
     
-    ## 2. Azure CLI로 접속 (Native Client)
+    ## 접속 방법
+    VPN 또는 VNet Peering을 통해 Jumpbox에 접근하세요.
+    Bastion이 활성화된 경우 Azure Portal에서 Bastion을 통해 연결할 수 있습니다.
     
-    ### Windows Jumpbox (RDP)
-    az network bastion rdp \
-      --name ${azurerm_bastion_host.main.name} \
-      --resource-group ${var.resource_group_name} \
-      --target-resource-id ${azurerm_windows_virtual_machine.main.id}
-    
-    ### Linux Jumpbox (SSH)
-    az network bastion ssh \
-      --name ${azurerm_bastion_host.main.name} \
-      --resource-group ${var.resource_group_name} \
-      --target-resource-id ${azurerm_linux_virtual_machine.main.id} \
-      --auth-type password \
-      --username ${var.admin_username}
-    
-    ## 3. 설치된 개발 환경
+    ## 설치된 개발 환경
     - Python 3.11 + 가상환경 (/opt/ai-dev-env)
     - Azure CLI
     - openai, azure-identity, azure-ai-projects 패키지

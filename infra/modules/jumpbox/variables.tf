@@ -4,12 +4,17 @@ variable "resource_group_name" {
 }
 
 variable "location" {
-  description = "Azure 리전"
+  description = "Jumpbox 배포 리전"
   type        = string
 }
 
-variable "subnet_id" {
+variable "jumpbox_subnet_id" {
   description = "Jumpbox 서브넷 ID"
+  type        = string
+}
+
+variable "bastion_subnet_id" {
+  description = "Azure Bastion 서브넷 ID"
   type        = string
 }
 
@@ -28,4 +33,10 @@ variable "admin_password" {
 variable "tags" {
   description = "리소스 태그"
   type        = map(string)
+}
+
+variable "enable_bastion" {
+  description = "Azure Bastion 활성화 여부"
+  type        = bool
+  default     = true
 }

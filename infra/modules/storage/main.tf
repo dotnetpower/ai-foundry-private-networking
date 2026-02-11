@@ -51,7 +51,6 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
 }
 
 # Storage Account - Blob Container (azapi로 생성 - 네트워크 제한 우회)
-# azurerm_storage_container는 public_network_access_enabled=false일 때 접근 불가
 resource "azapi_resource" "container_data" {
   type      = "Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01"
   name      = "data"
@@ -86,48 +85,6 @@ resource "azapi_resource" "container_models" {
   ]
 }
 
-# Private Endpoint for Blob
-resource "azurerm_private_endpoint" "blob" {
-  name                = "pe-storage-blob"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  subnet_id           = var.subnet_id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-storage-blob"
-    private_connection_resource_id = azurerm_storage_account.main.id
-    is_manual_connection           = false
-    subresource_names              = ["blob"]
-  }
-
-  private_dns_zone_group {
-    name                 = "pdnsz-group-blob"
-    private_dns_zone_ids = [var.private_dns_zone_ids["blob"]]
-  }
-}
-
-# Private Endpoint for File
-resource "azurerm_private_endpoint" "file" {
-  name                = "pe-storage-file"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  subnet_id           = var.subnet_id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-storage-file"
-    private_connection_resource_id = azurerm_storage_account.main.id
-    is_manual_connection           = false
-    subresource_names              = ["file"]
-  }
-
-  private_dns_zone_group {
-    name                 = "pdnsz-group-file"
-    private_dns_zone_ids = [var.private_dns_zone_ids["file"]]
-  }
-}
-
 # Azure Container Registry
 resource "azurerm_container_registry" "main" {
   name                          = "acraifoundry${random_string.suffix.result}"
@@ -159,7 +116,53 @@ resource "random_string" "suffix" {
   }
 }
 
-# Private Endpoint for Container Registry
+# =============================================================================
+# Private Endpoints
+# =============================================================================
+
+# Storage Blob Private Endpoint
+resource "azurerm_private_endpoint" "storage_blob" {
+  name                = "pe-storage-blob"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-storage-blob"
+    private_connection_resource_id = azurerm_storage_account.main.id
+    is_manual_connection           = false
+    subresource_names              = ["blob"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [var.private_dns_zone_ids["blob"]]
+  }
+}
+
+# Storage File Private Endpoint
+resource "azurerm_private_endpoint" "storage_file" {
+  name                = "pe-storage-file"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-storage-file"
+    private_connection_resource_id = azurerm_storage_account.main.id
+    is_manual_connection           = false
+    subresource_names              = ["file"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [var.private_dns_zone_ids["file"]]
+  }
+}
+
+# ACR Private Endpoint
 resource "azurerm_private_endpoint" "acr" {
   name                = "pe-acr"
   location            = var.location
@@ -175,25 +178,7 @@ resource "azurerm_private_endpoint" "acr" {
   }
 
   private_dns_zone_group {
-    name = "pdnsz-group-acr"
-    private_dns_zone_ids = [
-      azurerm_private_dns_zone.acr.id
-    ]
+    name                 = "default"
+    private_dns_zone_ids = [var.private_dns_zone_ids["acr"]]
   }
-}
-
-# Private DNS Zone for Container Registry
-resource "azurerm_private_dns_zone" "acr" {
-  name                = "privatelink.azurecr.io"
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-# Private DNS Zone VNet Link for Container Registry
-resource "azurerm_private_dns_zone_virtual_network_link" "acr" {
-  name                  = "link-acr"
-  resource_group_name   = var.resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.acr.name
-  virtual_network_id    = var.vnet_id
-  tags                  = var.tags
 }

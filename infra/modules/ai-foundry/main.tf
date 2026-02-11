@@ -13,10 +13,10 @@ terraform {
 
 # AI Foundry Hub (azapi로 생성 - Hub kind 지원)
 resource "azapi_resource" "hub" {
-  type      = "Microsoft.MachineLearningServices/workspaces@2024-04-01"
+  type      = "Microsoft.MachineLearningServices/workspaces@2024-07-01-preview"
   name      = "aihub-foundry"
   location  = var.location
-  parent_id = var.resource_group_id # data source 대신 직접 변수 사용
+  parent_id = var.resource_group_id
 
   identity {
     type = "SystemAssigned"
@@ -27,7 +27,7 @@ resource "azapi_resource" "hub" {
     properties = {
       friendlyName        = "AI Foundry Hub"
       description         = "Azure AI Foundry Hub for Agent Development"
-      publicNetworkAccess = "Disabled"
+      publicNetworkAccess = "Enabled"
       storageAccount      = var.storage_account_id
       keyVault            = var.key_vault_id
       containerRegistry   = var.container_registry_id
@@ -45,10 +45,10 @@ resource "azapi_resource" "hub" {
 
 # AI Foundry Project (에이전트 개발용)
 resource "azapi_resource" "project" {
-  type      = "Microsoft.MachineLearningServices/workspaces@2024-04-01"
+  type      = "Microsoft.MachineLearningServices/workspaces@2024-07-01-preview"
   name      = "aiproj-agents"
   location  = var.location
-  parent_id = var.resource_group_id # data source 대신 직접 변수 사용
+  parent_id = var.resource_group_id
 
   identity {
     type = "SystemAssigned"
@@ -59,7 +59,7 @@ resource "azapi_resource" "project" {
     properties = {
       friendlyName        = "Agent Development Project"
       description         = "Project for building AI Agents with GPT models"
-      publicNetworkAccess = "Disabled"
+      publicNetworkAccess = "Enabled"
       hubResourceId       = azapi_resource.hub.id
     }
   })
@@ -88,91 +88,28 @@ resource "azurerm_role_assignment" "hub_openai_user" {
 
 # AI Hub에 AI Search 접근 권한 부여
 resource "azurerm_role_assignment" "hub_search_reader" {
-  count                = var.ai_search_id != "" ? 1 : 0
+  count                = var.enable_ai_search ? 1 : 0
   scope                = var.ai_search_id
   role_definition_name = "Search Index Data Reader"
   principal_id         = azapi_resource.hub.identity[0].principal_id
 }
 
-# =============================================================================
-# Private Endpoints
-# =============================================================================
-
-# Private Endpoint for AI Hub
-resource "azurerm_private_endpoint" "ai_hub" {
-  name                = "pe-aihub"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  subnet_id           = var.subnet_id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-aihub"
-    private_connection_resource_id = azapi_resource.hub.id
-    is_manual_connection           = false
-    subresource_names              = ["amlworkspace"]
-  }
-
-  private_dns_zone_group {
-    name                 = "pdnsz-group-aihub"
-    private_dns_zone_ids = [var.private_dns_zone_ids["azureml"]]
-  }
+# AI Hub에 Container Registry 접근 권한 부여
+resource "azurerm_role_assignment" "hub_acr_pull" {
+  scope                = var.container_registry_id
+  role_definition_name = "AcrPull"
+  principal_id         = azapi_resource.hub.identity[0].principal_id
 }
 
-# Private Endpoint for AI Project - 주석 처리
-# Azure AI Foundry에서는 Project에 별도 Private Endpoint를 생성할 수 없음
-# Hub의 Private Endpoint가 Project도 커버함
-# resource "azurerm_private_endpoint" "ai_project" {
-#   name                = "pe-aiproject"
-#   location            = var.location
-#   resource_group_name = var.resource_group_name
-#   subnet_id           = var.subnet_id
-#   tags                = var.tags
-#
-#   private_service_connection {
-#     name                           = "psc-aiproject"
-#     private_connection_resource_id = azapi_resource.project.id
-#     is_manual_connection           = false
-#     subresource_names              = ["amlworkspace"]
-#   }
-#
-#   private_dns_zone_group {
-#     name                 = "pdnsz-group-aiproject"
-#     private_dns_zone_ids = [var.private_dns_zone_ids["azureml"]]
-#   }
-# }
+resource "azurerm_role_assignment" "hub_acr_push" {
+  scope                = var.container_registry_id
+  role_definition_name = "AcrPush"
+  principal_id         = azapi_resource.hub.identity[0].principal_id
+}
 
-# Compute Cluster (학습/추론용) - Hub/Project 둘 다 AmlCompute 지원 안됨
-# AI Foundry에서는 Serverless Compute 또는 Azure ML Studio에서 직접 생성 필요
-# resource "azapi_resource" "compute_cluster" {
-#   type      = "Microsoft.MachineLearningServices/workspaces/computes@2024-04-01"
-#   name      = "cpu-cluster"
-#   location  = var.location
-#   parent_id = azapi_resource.hub.id  # Hub로 변경
-#
-#   body = jsonencode({
-#     properties = {
-#       computeType = "AmlCompute"
-#       properties = {
-#         vmSize     = "Standard_DS3_v2"
-#         vmPriority = "LowPriority"
-#         scaleSettings = {
-#           minNodeCount                = 0
-#           maxNodeCount                = 4
-#           nodeIdleTimeBeforeScaleDown = "PT120S"
-#         }
-#         subnet = {
-#           id = var.subnet_id
-#         }
-#         enableNodePublicIp = false
-#       }
-#     }
-#   })
-#
-#   tags = var.tags
-#
-#   depends_on = [azapi_resource.hub]
-# }
+# =============================================================================
+# Connections (AAD 인증)
+# =============================================================================
 
 # AI Foundry Hub에 Azure OpenAI 연결 (Managed Identity 인증)
 resource "azapi_resource" "openai_connection" {
@@ -184,7 +121,7 @@ resource "azapi_resource" "openai_connection" {
     properties = {
       category      = "AzureOpenAI"
       target        = var.openai_endpoint
-      authType      = "AAD" # Managed Identity 인증으로 변경
+      authType      = "AAD"
       isSharedToAll = true
       metadata = {
         ApiType    = "azure"
@@ -199,7 +136,7 @@ resource "azapi_resource" "openai_connection" {
 
 # AI Search 연결 (RAG 패턴용) - Managed Identity 인증
 resource "azapi_resource" "search_connection" {
-  count     = var.ai_search_endpoint != "" ? 1 : 0
+  count     = var.enable_ai_search ? 1 : 0
   type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-04-01"
   name      = "aisearch-connection"
   parent_id = azapi_resource.hub.id
@@ -208,10 +145,39 @@ resource "azapi_resource" "search_connection" {
     properties = {
       category      = "CognitiveSearch"
       target        = var.ai_search_endpoint
-      authType      = "AAD" # Managed Identity 인증으로 변경
+      authType      = "AAD"
       isSharedToAll = true
     }
   })
+
+  depends_on = [azapi_resource.hub]
+}
+
+# =============================================================================
+# AI Hub Private Endpoint
+# =============================================================================
+
+resource "azurerm_private_endpoint" "hub" {
+  name                = "pe-aihub"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-aihub"
+    private_connection_resource_id = azapi_resource.hub.id
+    is_manual_connection           = false
+    subresource_names              = ["amlworkspace"]
+  }
+
+  private_dns_zone_group {
+    name = "default"
+    private_dns_zone_ids = [
+      var.private_dns_zone_ids["azureml"],
+      var.private_dns_zone_ids["notebooks"]
+    ]
+  }
 
   depends_on = [azapi_resource.hub]
 }

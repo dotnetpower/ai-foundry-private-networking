@@ -9,13 +9,18 @@ output "vnet_name" {
 }
 
 output "ai_foundry_subnet_id" {
-  description = "AI Foundry 서브넷 ID"
+  description = "AI Foundry 서브넷 ID (Private Endpoints)"
   value       = azurerm_subnet.ai_foundry.id
 }
 
 output "jumpbox_subnet_id" {
   description = "Jumpbox 서브넷 ID"
   value       = azurerm_subnet.jumpbox.id
+}
+
+output "bastion_subnet_id" {
+  description = "Azure Bastion 서브넷 ID"
+  value       = azurerm_subnet.bastion.id
 }
 
 output "private_dns_zone_ids" {
@@ -28,6 +33,7 @@ output "private_dns_zone_ids" {
     vault       = azurerm_private_dns_zone.vault.id
     cogservices = azurerm_private_dns_zone.cogservices.id
     openai      = azurerm_private_dns_zone.openai.id
-    apim        = azurerm_private_dns_zone.apim.id
+    acr         = azurerm_private_dns_zone.acr.id
+    search      = azurerm_private_dns_zone.search.id
   }
 }

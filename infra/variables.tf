@@ -7,7 +7,7 @@ variable "resource_group_name" {
 variable "location" {
   description = "Azure 리전"
   type        = string
-  default     = "koreacentral"
+  default     = "swedencentral"
 }
 
 variable "environment" {
@@ -28,6 +28,20 @@ variable "deploy_date" {
   default     = ""
 }
 
+variable "tags" {
+  description = "리소스 태그"
+  type        = map(string)
+  default = {
+    Environment = "dev"
+    Project     = "AI Foundry Private Networking"
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =============================================================================
+# 네트워크 설정
+# =============================================================================
+
 variable "vnet_address_space" {
   description = "VNet 주소 공간"
   type        = list(string)
@@ -43,7 +57,7 @@ variable "subnet_config" {
   default = {
     ai_foundry = {
       address_prefixes  = ["10.0.1.0/24"]
-      service_endpoints = ["Microsoft.Storage", "Microsoft.KeyVault", "Microsoft.CognitiveServices"]
+      service_endpoints = []
     }
     jumpbox = {
       address_prefixes  = ["10.0.2.0/24"]
@@ -52,41 +66,25 @@ variable "subnet_config" {
   }
 }
 
-# storage_account_name 변수 제거됨 - locals에서 자동 생성
+# =============================================================================
+# Jumpbox 설정
+# =============================================================================
 
-variable "jumpbox_admin_username" {
-  description = "Jumpbox 관리자 사용자명"
+variable "admin_username" {
+  description = "Jumpbox VM 관리자 사용자명"
   type        = string
-  sensitive   = true
   default     = "azureuser"
+  sensitive   = true
 }
 
-variable "jumpbox_admin_password" {
-  description = "Jumpbox 관리자 비밀번호 (환경 변수로 설정: export TF_VAR_jumpbox_admin_password='YourSecurePassword')"
+variable "admin_password" {
+  description = "Jumpbox VM 관리자 비밀번호"
   type        = string
   sensitive   = true
-  # 보안상 기본값 제거 - 반드시 환경 변수 또는 tfvars 파일로 제공 필요
-  # 최소 요구사항: 12자 이상, 대소문자, 숫자, 특수문자 포함
 }
 
-variable "publisher_email" {
-  description = "API Management 게시자 이메일"
-  type        = string
-  default     = "admin@example.com"
-}
-
-variable "apim_sku_name" {
-  description = "API Management SKU 이름"
-  type        = string
-  default     = "Developer_1"
-}
-
-variable "tags" {
-  description = "리소스 태그"
-  type        = map(string)
-  default = {
-    Environment = "dev"
-    Project     = "AI Foundry Private Networking"
-    ManagedBy   = "Terraform"
-  }
+variable "enable_bastion" {
+  description = "Azure Bastion 활성화 여부"
+  type        = bool
+  default     = true
 }

@@ -33,16 +33,6 @@ variable "application_insights_id" {
   type        = string
 }
 
-variable "subnet_id" {
-  description = "서브넷 ID"
-  type        = string
-}
-
-variable "private_dns_zone_ids" {
-  description = "Private DNS Zone ID 맵"
-  type        = map(string)
-}
-
 variable "tags" {
   description = "리소스 태그"
   type        = map(string)
@@ -84,4 +74,20 @@ variable "ai_search_id" {
   description = "Azure AI Search 리소스 ID (RBAC 할당용)"
   type        = string
   default     = ""
+}
+
+variable "enable_ai_search" {
+  description = "AI Search 연결 활성화 여부"
+  type        = bool
+  default     = true
+}
+
+variable "subnet_id" {
+  description = "Private Endpoint를 배치할 서브넷 ID"
+  type        = string
+}
+
+variable "private_dns_zone_ids" {
+  description = "Private DNS Zone IDs (azureml, notebooks)"
+  type        = map(string)
 }

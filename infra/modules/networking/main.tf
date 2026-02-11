@@ -1,64 +1,54 @@
+# =============================================================================
+# Networking Module - Sweden Central 단일 리전
+# VNet, Subnets, NSGs, Private DNS Zones
+# =============================================================================
+
 # Virtual Network
 resource "azurerm_virtual_network" "main" {
   name                = "vnet-aifoundry"
-  location            = var.location
   resource_group_name = var.resource_group_name
+  location            = var.location
   address_space       = var.vnet_address_space
   tags                = var.tags
 }
 
-# AI Foundry 서브넷
+# Subnet - AI Foundry (Private Endpoints 전용)
 resource "azurerm_subnet" "ai_foundry" {
-  name                            = "snet-aifoundry"
-  resource_group_name             = var.resource_group_name
-  virtual_network_name            = azurerm_virtual_network.main.name
-  address_prefixes                = var.subnet_config["ai_foundry"].address_prefixes
-  service_endpoints               = var.subnet_config["ai_foundry"].service_endpoints
-  default_outbound_access_enabled = false
+  name                              = "snet-aifoundry"
+  resource_group_name               = var.resource_group_name
+  virtual_network_name              = azurerm_virtual_network.main.name
+  address_prefixes                  = var.subnet_config["ai_foundry"].address_prefixes
+  default_outbound_access_enabled   = false
+  private_endpoint_network_policies = "Disabled"
 }
 
-# Jumpbox 서브넷
+# Subnet - Jumpbox
 resource "azurerm_subnet" "jumpbox" {
   name                            = "snet-jumpbox"
   resource_group_name             = var.resource_group_name
   virtual_network_name            = azurerm_virtual_network.main.name
   address_prefixes                = var.subnet_config["jumpbox"].address_prefixes
-  service_endpoints               = var.subnet_config["jumpbox"].service_endpoints
   default_outbound_access_enabled = false
 }
 
-# Network Security Group - AI Foundry
+# Subnet - Azure Bastion (이름은 반드시 AzureBastionSubnet)
+resource "azurerm_subnet" "bastion" {
+  name                 = "AzureBastionSubnet"
+  resource_group_name  = var.resource_group_name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.255.0/26"]
+}
+
+# =============================================================================
+# Network Security Groups
+# =============================================================================
+
+# NSG - AI Foundry Subnet (Private Endpoints)
 resource "azurerm_network_security_group" "ai_foundry" {
   name                = "nsg-aifoundry"
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
-
-  # APIM Management Endpoint (필수 - Internal VNet 모드)
-  security_rule {
-    name                       = "AllowAPIMManagement"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3443"
-    source_address_prefix      = "ApiManagement"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
-  # Azure Load Balancer Health Probe (필수)
-  security_rule {
-    name                       = "AllowAzureLoadBalancer"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "6390"
-    source_address_prefix      = "AzureLoadBalancer"
-    destination_address_prefix = "VirtualNetwork"
-  }
 
   security_rule {
     name                       = "AllowHTTPS"
@@ -70,21 +60,6 @@ resource "azurerm_network_security_group" "ai_foundry" {
     destination_port_range     = "443"
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "*"
-  }
-
-  # APIM Gateway 포트 (Internal VNet 모드)
-  # 참고: APIM은 Internal 모드로 구성되어 있으나, APIM 개발자 포털 접근을 위해 Internet 소스 허용
-  # 보안 고려사항: APIM 자체 인증 및 권한 부여 메커니즘으로 보호됨
-  security_rule {
-    name                       = "AllowAPIMGateway"
-    priority                   = 130
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "Internet"
-    destination_address_prefix = "VirtualNetwork"
   }
 
   security_rule {
@@ -100,42 +75,67 @@ resource "azurerm_network_security_group" "ai_foundry" {
   }
 }
 
-# Network Security Group - Jumpbox (East US - 현재 미사용)
-# 참고: 실제 Jumpbox는 Korea Central 리전에 배포되어 있으며 jumpbox-krc 모듈에서 관리됨
-# 이 NSG는 향후 East US 리전에 Jumpbox가 필요할 경우를 대비한 템플릿입니다.
-# 보안 권장사항: RDP/SSH는 특정 IP 범위 또는 Azure Bastion 서브넷으로 제한 필요
+# NSG - Jumpbox Subnet (Bastion에서만 접근 허용)
 resource "azurerm_network_security_group" "jumpbox" {
   name                = "nsg-jumpbox"
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
+  # Allow SSH from Bastion Subnet only
   security_rule {
-    name                       = "AllowRDP"
+    name                       = "AllowSSHFromBastion"
     priority                   = 100
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "3389"
-    source_address_prefix      = "*" # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
+    destination_port_range     = "22"
+    source_address_prefix      = "10.0.255.0/26"
     destination_address_prefix = "*"
   }
 
+  # Deny all other inbound
   security_rule {
-    name                       = "AllowSSH"
-    priority                   = 110
+    name                       = "DenyAllInbound"
+    priority                   = 4096
     direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
+    access                     = "Deny"
+    protocol                   = "*"
     source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*" # 프로덕션에서는 Bastion 서브넷 또는 특정 IP로 제한 필요
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
     destination_address_prefix = "*"
+  }
+
+  # Allow outbound to VNet (Private Endpoints 접근)
+  security_rule {
+    name                       = "AllowVNetOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  # Allow outbound to Internet (패키지 설치용)
+  security_rule {
+    name                       = "AllowInternet"
+    priority                   = 200
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "Internet"
   }
 }
 
-# NSG Association
+# NSG Associations
 resource "azurerm_subnet_network_security_group_association" "ai_foundry" {
   subnet_id                 = azurerm_subnet.ai_foundry.id
   network_security_group_id = azurerm_network_security_group.ai_foundry.id
@@ -146,7 +146,10 @@ resource "azurerm_subnet_network_security_group_association" "jumpbox" {
   network_security_group_id = azurerm_network_security_group.jumpbox.id
 }
 
+# =============================================================================
 # Private DNS Zones
+# =============================================================================
+
 resource "azurerm_private_dns_zone" "azureml" {
   name                = "privatelink.api.azureml.ms"
   resource_group_name = var.resource_group_name
@@ -189,7 +192,22 @@ resource "azurerm_private_dns_zone" "openai" {
   tags                = var.tags
 }
 
+resource "azurerm_private_dns_zone" "acr" {
+  name                = "privatelink.azurecr.io"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone" "search" {
+  name                = "privatelink.search.windows.net"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+# =============================================================================
 # Private DNS Zone VNet Links
+# =============================================================================
+
 resource "azurerm_private_dns_zone_virtual_network_link" "azureml" {
   name                  = "link-azureml"
   resource_group_name   = var.resource_group_name
@@ -246,17 +264,18 @@ resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
   tags                  = var.tags
 }
 
-# Private DNS Zone for API Management
-resource "azurerm_private_dns_zone" "apim" {
-  name                = "privatelink.azure-api.net"
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
+resource "azurerm_private_dns_zone_virtual_network_link" "acr" {
+  name                  = "link-acr"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.acr.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
-resource "azurerm_private_dns_zone_virtual_network_link" "apim" {
-  name                  = "link-apim"
+resource "azurerm_private_dns_zone_virtual_network_link" "search" {
+  name                  = "link-search"
   resource_group_name   = var.resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.apim.name
+  private_dns_zone_name = azurerm_private_dns_zone.search.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
 }

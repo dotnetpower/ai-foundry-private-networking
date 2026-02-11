@@ -4,576 +4,338 @@ Azure AI Foundry를 프라이빗 네트워크 환경에서 구성하기 위한 T
 
 ## 개요
 
-이 프로젝트는 Azure AI Foundry Hub와 Project를 프라이빗 엔드포인트를 통해 안전하게 배포하고, 관련 서비스들을 통합 관리하는 인프라를 제공합니다.
+이 프로젝트는 Azure AI Foundry Hub와 Project를 **프라이빗 엔드포인트** 기반으로 안전하게 배포하고,
+Azure Bastion + Jumpbox를 통해 프라이빗 네트워크 내에서 AI Foundry에 접근할 수 있는 인프라를 제공합니다.
 
 ### 주요 기능
 
-- Azure AI Foundry Hub/Project 프라이빗 배포
+- Azure AI Foundry Hub/Project 프라이빗 배포 (Managed Network + Private Endpoint)
 - Azure OpenAI 서비스 통합 (GPT-4o, text-embedding-ada-002)
-- 프라이빗 엔드포인트 기반 네트워크 격리
-- API Management를 통한 개발자 포털 제공
-- 멀티 리전 구성 (East US + Korea Central)
-- Jumpbox VM을 통한 안전한 접근
+- 7개 Private Endpoint 기반 네트워크 격리
+- 9개 Private DNS Zone을 통한 이름 해석
 - Azure Bastion을 통한 보안 접속
+- Linux Jumpbox VM (Python 개발 환경 자동 구성)
+- AAD(Managed Identity) 인증 기반 서비스 간 연결
 
 ## 아키텍처
 
-### 리전 분리 구성
+### 배포 구성 (2026년 2월 11일 기준)
 
-| 리전 | 리소스 |
-|------|--------|
-| **East US** | AI Foundry Hub/Project, Azure OpenAI, Storage, Key Vault, APIM, VNet |
-| **Korea Central** | Jumpbox VMs (Windows/Linux), Bastion Host, VNet Peering |
+Sweden Central 단일 리전에 **Private Networking** 구성으로 배포되어 있습니다.
 
-### 인프라 다이어그램
-
-#### 전체 아키텍처
-
-```mermaid
-flowchart LR
-    subgraph User["👤 사용자 접근"]
-        Portal["Azure Portal"]
-    end
-
-    subgraph KRC["🇰🇷 Korea Central"]
-        Bastion["🛡️ Bastion"]
-        subgraph JumpboxVMs["Jumpbox VMs"]
-            WinVM["🖥️ Windows<br/>10.1.1.4"]
-            LinuxVM["🐧 Linux<br/>10.1.1.5"]
-        end
-    end
-
-    subgraph EUS["🌍 East US"]
-        subgraph AIServices["AI Foundry Services"]
-            Hub["🏠 AI Hub"]
-            Project["📁 AI Project"]
-        end
-        subgraph Backend["Backend Services"]
-            OpenAI["🧠 OpenAI"]
-            Search["🔍 AI Search"]
-            Storage["💾 Storage"]
-            KV["🔐 Key Vault"]
-        end
-    end
-
-    Portal --> Bastion
-    Bastion --> WinVM & LinuxVM
-    WinVM & LinuxVM -.->|Private Endpoint| Hub
-    Hub --> Project
-    Project --> OpenAI & Search
-    Hub --> Storage & KV
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Sweden Central (단일 리전)                             │
+│  rg-aifoundry-20260211                                                     │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │               vnet-aifoundry (10.0.0.0/16)                            │ │
+│  │                                                                       │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  snet-aifoundry (10.0.1.0/24) - Private Endpoints 전용          │ │ │
+│  │  │  pe-aihub, pe-storage-blob, pe-storage-file, pe-keyvault,       │ │ │
+│  │  │  pe-openai, pe-search, pe-acr                                   │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  snet-jumpbox (10.0.2.0/24) - Jumpbox VM                        │ │ │
+│  │  │  vm-jumpbox-linux (10.0.2.4) - Ubuntu 22.04                     │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
+│  │  │  AzureBastionSubnet (10.0.255.0/26) - Bastion Host 전용         │ │ │
+│  │  │  bastion-aifoundry (Standard SKU, tunneling 지원)                │ │ │
+│  │  └─────────────────────────────────────────────────────────────────┘ │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### East US 리전 상세
+#### 인프라 구성도
 
 ```mermaid
-flowchart TB
-    subgraph VNet["🔒 vnet-aifoundry 10.0.0.0/16"]
-        subgraph Subnet["snet-ai-foundry"]
-            PE1["🔗 PE: AI Hub"]
-            PE2["🔗 PE: OpenAI"]
-            PE3["🔗 PE: Storage"]
-            PE4["🔗 PE: Key Vault"]
-            PE5["🔗 PE: AI Search"]
-            PE6["🔗 PE: ACR"]
-        end
+graph TB
+    subgraph Internet["인터넷"]
+        User["사용자"]
     end
 
-    subgraph AI["🤖 AI Foundry"]
-        Hub["🏠 aihub-foundry"]
-        Project["📁 aiproj-agents"]
-    end
-
-    subgraph OpenAI["🧠 aoai-aifoundry"]
-        GPT["💬 GPT-4o"]
-        Embed["📊 text-embedding-ada-002"]
-    end
-
-    subgraph Store["💾 Storage"]
-        SA["📦 staifoundry20260128"]
-        ACR["🐳 acraifoundry..."]
-    end
-
-    KV["🔐 kv-aif-e8txcj4l"]
-    Search["🔍 srch-aifoundry"]
-
-    subgraph Monitor["📊 Monitoring"]
-        Log["📈 Log Analytics"]
-        AppIns["🔭 App Insights"]
-    end
-
-    APIM["🌐 API Management"]
-
-    PE1 -.-> Hub
-    PE2 -.-> OpenAI
-    PE3 -.-> SA
-    PE4 -.-> KV
-    PE5 -.-> Search
-    PE6 -.-> ACR
-
-    Hub --> Project
-    Hub --> OpenAI
-    Hub --> Search
-    Hub --> SA
-    Hub --> KV
-    Hub --> ACR
-    Project --> AppIns
-    APIM --> OpenAI
-```
-
-#### Korea Central 리전 상세
-
-```mermaid
-flowchart TB
-    subgraph VNet["🔒 vnet-jumpbox-krc 10.1.0.0/16"]
-        subgraph SubnetBastion["AzureBastionSubnet"]
-            Bastion["🛡️ bastion-jumpbox-krc"]
-        end
-        subgraph SubnetJB["snet-jumpbox 10.1.1.0/24"]
-            WinVM["🖥️ vm-jb-win-krc<br/>Private IP: 10.1.1.4<br/>Python, Azure CLI"]
-            LinuxVM["🐧 vm-jumpbox-linux-krc<br/>Private IP: 10.1.1.5<br/>Docker, Azure CLI"]
-        end
-    end
-
-    Peering["🔄 VNet Peering<br/>↔ East US"]
-
-    User["👤 사용자"] --> |Azure Portal| Bastion
-    Bastion --> |RDP| WinVM
-    Bastion --> |SSH| LinuxVM
-    WinVM & LinuxVM --> Peering
-    Peering --> |Private Network| EUS["East US AI Services"]
-```
-
-### 데이터 흐름도
-
-```mermaid
-sequenceDiagram
-    participant User as 👤 사용자
-    participant Bastion as 🛡️ Azure Bastion
-    participant Jumpbox as 🖥️ Jumpbox VM
-    participant PE as 🔗 Private Endpoint
-    participant Hub as 🏠 AI Hub
-    participant Project as 📁 AI Project
-    participant OpenAI as 🧠 Azure OpenAI
-    participant Search as 🔍 AI Search
-    
-    User->>Bastion: 1. Azure Portal 접속
-    Bastion->>Jumpbox: 2. 보안 터널링
-    Jumpbox->>PE: 3. 프라이빗 네트워크 경유
-    PE->>Hub: 4. AI Hub 접근
-    Hub->>Project: 5. 프로젝트 선택
-    
-    Note over Project,OpenAI: AI 에이전트 실행
-    Project->>OpenAI: 6. GPT-4o 호출
-    OpenAI-->>Project: 7. 응답 반환
-    
-    Note over Project,Search: RAG 패턴 (선택)
-    Project->>Search: 8. 문서 검색
-    Search-->>Project: 9. 검색 결과
-    
-    Project-->>Jumpbox: 10. 결과 표시
-```
-
-### 네트워크 보안 구성
-
-```mermaid
-graph LR
-    subgraph Internet["🌐 인터넷"]
-        ExtUser["외부 사용자"]
-    end
-    
-    subgraph Azure["☁️ Azure"]
-        subgraph Public["공용 접근점"]
-            Portal["Azure Portal"]
-            APIM_Pub["APIM Gateway"]
-        end
-        
-        subgraph Private["🔒 프라이빗 네트워크"]
-            Bastion["Azure Bastion"]
-            
-            subgraph VNet1["East US VNet"]
-                AIServices["AI Services<br/>(Private Only)"]
+    subgraph Azure["Azure - Sweden Central"]
+        subgraph RG["rg-aifoundry-20260211"]
+            subgraph VNet["vnet-aifoundry (10.0.0.0/16)"]
+                subgraph BastionSubnet["AzureBastionSubnet (10.0.255.0/26)"]
+                    Bastion["bastion-aifoundry\nStandard SKU"]
+                end
+                subgraph JumpboxSubnet["snet-jumpbox (10.0.2.0/24)"]
+                    LinuxVM["vm-jumpbox-linux\n10.0.2.4\nUbuntu 22.04"]
+                end
+                subgraph PESubnet["snet-aifoundry (10.0.1.0/24)"]
+                    PE1["pe-aihub"]
+                    PE2["pe-storage-blob"]
+                    PE3["pe-storage-file"]
+                    PE4["pe-keyvault"]
+                    PE5["pe-openai"]
+                    PE6["pe-search"]
+                    PE7["pe-acr"]
+                end
             end
-            
-            subgraph VNet2["Korea Central VNet"]
-                Jumpbox["Jumpbox VMs"]
-            end
-            
-            VNet1 <--> VNet2
+
+            Hub["AI Hub\naihub-foundry"]
+            Project["AI Project\naiproj-agents"]
+            OpenAI["Azure OpenAI\naoai-aifoundry"]
+            Search["AI Search\nsrch-aifoundry"]
+            Storage["Storage\nstaifoundry20260211"]
+            KV["Key Vault\nkv-aif-e5xwo8r1"]
+            ACR["Container Registry\nacraifoundry2tynvt2g"]
+            Monitor["App Insights + Log Analytics"]
         end
     end
-    
-    ExtUser -->|"HTTPS"| Portal
-    ExtUser -->|"API 호출"| APIM_Pub
-    Portal -->|"Bastion 연결"| Bastion
-    Bastion -->|"RDP/SSH"| Jumpbox
-    Jumpbox -->|"Private Endpoint"| AIServices
-    APIM_Pub -->|"Private Backend"| AIServices
-    
-    style Private fill:#e6f3ff,stroke:#0078D4
-    style AIServices fill:#7B2C8C,color:#fff
-    style Bastion fill:#107C10,color:#fff
+
+    User -->|HTTPS| Bastion
+    Bastion -->|SSH:22| LinuxVM
+    LinuxVM -->|Private DNS| PESubnet
+
+    PE1 --- Hub
+    PE2 --- Storage
+    PE3 --- Storage
+    PE4 --- KV
+    PE5 --- OpenAI
+    PE6 --- Search
+    PE7 --- ACR
+    Hub --- Project
+    Hub --- Monitor
+
+    style PESubnet fill:#e1f5fe
+    style JumpboxSubnet fill:#e8f5e9
+    style BastionSubnet fill:#fff3e0
 ```
 
-### 배포된 주요 리소스 (2026년 1월 28일 기준)
+### 트래픽 흐름
 
-| 카테고리 | 리소스 | 이름/값 |
-|----------|--------|---------|
-| **리소스 그룹** | Resource Group | `rg-aifoundry-20260128` |
-| **네트워크** | VNet (East US) | `vnet-aifoundry` (10.0.0.0/16) |
-| | VNet (Korea Central) | `vnet-jumpbox-krc` (10.1.0.0/16) |
-| **AI Foundry** | AI Hub | `aihub-foundry` |
-| | AI Project | `aiproj-agents` |
-| **Azure OpenAI** | OpenAI Account | `aoai-aifoundry` |
-| | GPT-4o | `gpt-4o` (2024-11-20) |
-| | Embedding | `text-embedding-ada-002` |
-| **스토리지** | Storage Account | `staifoundry20260128` |
-| | Container Registry | `acraifoundryb658f2ug` |
-| **보안** | Key Vault | `kv-aif-e8txcj4l` |
-| **Jumpbox** | Windows VM | Private IP: `10.1.1.4` |
-| | Linux VM | Private IP: `10.1.1.5` |
-| | Bastion | `bastion-jumpbox-krc` |
+```
+[사용자] ──HTTPS──> [Azure Portal / Bastion Public IP]
+                            │
+                            ▼
+              [Azure Bastion (10.0.255.0/26)]
+                            │
+                        SSH (22)
+                            │
+                            ▼
+              [Jumpbox VM (10.0.2.4)]
+                            │
+                      Private DNS
+                            │
+                            ▼
+              [Private Endpoint (10.0.1.x)]
+                            │
+                            ▼
+              [Azure Service (AI Foundry, OpenAI, etc.)]
+```
+
+### 배포된 리소스 목록
+
+| 카테고리 | 리소스 타입 | 리소스 이름 | 비고 |
+|----------|------------|------------|------|
+| **리소스 그룹** | Resource Group | `rg-aifoundry-20260211` | Sweden Central |
+| **네트워킹** | Virtual Network | `vnet-aifoundry` | 10.0.0.0/16 |
+| | Subnet (PE) | `snet-aifoundry` | 10.0.1.0/24 |
+| | Subnet (Jumpbox) | `snet-jumpbox` | 10.0.2.0/24 |
+| | Subnet (Bastion) | `AzureBastionSubnet` | 10.0.255.0/26 |
+| | NSG | `nsg-aifoundry`, `nsg-jumpbox` | |
+| **AI Foundry** | AI Hub | `aihub-foundry` | kind=Hub, Managed Network |
+| | AI Project | `aiproj-agents` | kind=Project |
+| **Azure OpenAI** | Cognitive Account | `aoai-aifoundry` | kind=OpenAI |
+| | 모델 배포 | `gpt-4o` | 버전: 2024-11-20 |
+| | 모델 배포 | `text-embedding-ada-002` | 임베딩 모델 |
+| **검색** | AI Search | `srch-aifoundry-27y5yxhp` | Standard SKU |
+| **스토리지** | Storage Account | `staifoundry20260211` | StorageV2 |
+| | Container Registry | `acraifoundry2tynvt2g` | Premium SKU |
+| **보안** | Key Vault | `kv-aif-e5xwo8r1` | |
+| | Managed Identity | `id-aifoundry` | User Assigned |
+| **모니터링** | Log Analytics | `log-aifoundry` | |
+| | Application Insights | `appi-aifoundry` | |
+| **Jumpbox** | Linux VM | `vm-jumpbox-linux` | 10.0.2.4, Standard_D4s_v3 |
+| | Bastion Host | `bastion-aifoundry` | Standard SKU |
+
+### Private Endpoints
+
+| Private Endpoint | 대상 리소스 | Sub Resource | 상태 |
+|------------------|------------|:------------:|:----:|
+| `pe-aihub` | AI Hub | amlworkspace | Approved |
+| `pe-storage-blob` | Storage Account | blob | Approved |
+| `pe-storage-file` | Storage Account | file | Approved |
+| `pe-keyvault` | Key Vault | vault | Approved |
+| `pe-openai` | Azure OpenAI | account | Approved |
+| `pe-search` | AI Search | searchService | Approved |
+| `pe-acr` | Container Registry | registry | Approved |
+
+### 네트워크 접근 설정
+
+| 리소스 | publicNetworkAccess | 접근 방식 |
+|--------|:-------------------:|----------|
+| AI Hub | `Disabled` (강제) | Private Endpoint + Managed Network |
+| AI Project | `Disabled` (강제) | Hub의 Managed Network를 통해 접근 |
+| Azure OpenAI | `Disabled` | Private Endpoint 전용 |
+| AI Search | `Disabled` | Private Endpoint 전용 |
+| Storage Account | `Disabled` | Private Endpoint 전용 |
+| Key Vault | `Disabled` | Private Endpoint 전용 |
+| Container Registry | `Disabled` | Private Endpoint 전용 |
+
+### Private DNS Zones
+
+| DNS Zone | 용도 |
+|----------|------|
+| `privatelink.api.azureml.ms` | AI Foundry Hub API |
+| `privatelink.notebooks.azure.net` | AI Foundry Notebooks |
+| `privatelink.blob.core.windows.net` | Storage Blob |
+| `privatelink.file.core.windows.net` | Storage File Share |
+| `privatelink.vaultcore.azure.net` | Key Vault |
+| `privatelink.cognitiveservices.azure.com` | Cognitive Services |
+| `privatelink.openai.azure.com` | Azure OpenAI |
+| `privatelink.azurecr.io` | Container Registry |
+| `privatelink.search.windows.net` | AI Search |
+
+### Network Security Groups
+
+#### nsg-aifoundry (Private Endpoints 서브넷)
+
+| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 동작 |
+|----------|----------|------|------|------|------|
+| 120 | AllowHTTPS | Inbound | 443 | VirtualNetwork | Allow |
+| 4096 | DenyAllInbound | Inbound | * | * | Deny |
+
+#### nsg-jumpbox (Jumpbox 서브넷)
+
+| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 동작 |
+|----------|----------|------|------|------|------|
+| 100 | AllowSSHFromBastion | Inbound | 22 | 10.0.255.0/26 | Allow |
+| 4096 | DenyAllInbound | Inbound | * | * | Deny |
+| 100 | AllowVNetOutbound | Outbound | * | VNet | Allow |
+| 200 | AllowInternet | Outbound | * | Internet | Allow |
+
+### 네트워크 보안 핵심 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| **Zero Trust** | 모든 서비스는 Private Endpoint를 통해서만 접근, 공용 엔드포인트 비활성화 |
+| **최소 권한** | NSG에서 필요한 포트만 열고 기본 거부 |
+| **Bastion 필수** | Jumpbox VM에 Public IP 없음, Azure Bastion만 접근 허용 |
+| **AAD 인증** | 서비스 간 연결은 Managed Identity 기반 AAD 인증 |
+| **아웃바운드 제어** | `default_outbound_access_enabled = false` |
 
 ## 프로젝트 구조
 
 ```
 .
-├── infra/                       # Terraform 인프라 코드
-│   ├── main.tf                  # 메인 구성
-│   ├── variables.tf             # 변수 정의
-│   ├── outputs.tf               # 출력 정의
-│   ├── environments/            # 환경별 설정
-│   │   ├── dev/                 # 개발 환경
-│   │   └── prod/                # 프로덕션 환경
-│   ├── modules/                 # Terraform 모듈
-│   │   ├── networking/          # VNet, Subnet, NSG
-│   │   ├── ai-foundry/          # AI Hub, Project
-│   │   ├── storage/             # Storage, Container Registry
-│   │   ├── security/            # Key Vault, RBAC
-│   │   ├── monitoring/          # Application Insights
-│   │   ├── cognitive-services/  # Azure OpenAI, AI Search
-│   │   ├── jumpbox-krc/         # Jumpbox VMs (Korea Central)
-│   │   └── apim/                # API Management
-│   └── scripts/                 # 자동화 스크립트
-├── src/                         # Python 소스 코드
-│   └── visualize_infrastructure.py  # 인프라 시각화
-└── docs/                        # 문서
-    └── cost-estimation.md       # 비용 추정
+├── infra/                          # Terraform 인프라 코드
+│   ├── main.tf                     # 메인 구성 (모듈 호출)
+│   ├── variables.tf                # 변수 정의
+│   ├── outputs.tf                  # 출력 정의
+│   ├── environments/
+│   │   └── dev/
+│   │       └── terraform.tfvars    # 개발 환경 변수
+│   ├── modules/
+│   │   ├── networking/             # VNet, Subnet, NSG, Private DNS Zones
+│   │   ├── ai-foundry/             # AI Hub, Project, Connections, RBAC, Hub PE
+│   │   ├── storage/                # Storage Account, ACR, Storage/ACR PE
+│   │   ├── security/               # Key Vault, Managed Identity, KV PE
+│   │   ├── monitoring/             # Application Insights, Log Analytics
+│   │   ├── cognitive-services/     # Azure OpenAI, AI Search, OpenAI/Search PE
+│   │   └── jumpbox/                # Linux VM, Azure Bastion
+│   └── scripts/                    # 배포 자동화 스크립트
+├── src/                            # Python 소스 코드
+│   └── visualize/                  # 인프라 시각화
+├── scripts/                        # 유틸리티 스크립트
+└── docs/                           # 문서
 ```
 
 ## 시작하기
 
-### 🚀 빠른 시작 (5분 배포)
+### 사전 요구사항
 
-```bash
-# 1. 프로젝트 클론
-git clone https://github.com/dotnetpower/ai-foundry-private-networking.git
-cd ai-foundry-private-networking
-
-# 2. Azure 로그인
-az login
-az account set --subscription "<구독-ID>"
-
-# 3. 배포 (자동)
-cd infra
-./scripts/deploy.sh
-
-# 4. Jumpbox 접속 (Azure Bastion)
-az network bastion rdp \
-  --name bastion-jumpbox-krc \
-  --resource-group rg-aifoundry-$(date +%Y%m%d) \
-  --target-resource-id $(az vm show -g rg-aifoundry-$(date +%Y%m%d) -n vm-jb-win-krc --query id -o tsv)
-
-# 5. Jumpbox에서 오프라인 설정 (Windows PowerShell)
-cd C:\Users\azureuser\Downloads
-# 이 리포지토리에서 스크립트를 다운로드하여 실행:
-.\jumpbox-offline-deploy.ps1
-
-# 6. 배포 검증
-./scripts/verify-deployment.sh
-```
-
-**예상 시간**:
-- Terraform 배포: 40-60분 (APIM 포함 시 60-90분)
-- Jumpbox 설정: 5-10분
-- 검증: 2-3분
-
-### 📋 사전 요구사항
-
-- [Terraform](https://www.terraform.io/) v1.12.1 이상
+- [Terraform](https://www.terraform.io/) v1.5.0 이상
 - [Azure CLI](https://docs.microsoft.com/cli/azure/) 최신 버전
 - Azure 구독 및 적절한 권한 (Contributor, User Access Administrator)
-- [uv](https://github.com/astral-sh/uv) (Python 시각화용, 선택사항)
 
-### 📖 상세 배포 방법
+### 배포
 
-상세한 배포 절차는 **[📘 배포 가이드](docs/deployment-guide.md)**를 참조하세요.
-
-#### 1. Azure 로그인
 ```bash
+# 1. Azure 로그인
 az login
 az account set --subscription "<구독-ID>"
-```
 
-#### 2. Terraform 초기화
-```bash
+# 2. Terraform 초기화 및 배포
 cd infra
-./scripts/init-terraform.sh local
+terraform init
+terraform plan -var-file=environments/dev/terraform.tfvars
+terraform apply -var-file=environments/dev/terraform.tfvars -auto-approve
 ```
 
-#### 3. 배포 실행 (권장)
-```bash
-./scripts/deploy.sh
-```
+**예상 배포 시간**: 약 15-20분 (Bastion 배포에 약 8분 소요)
 
-또는 수동으로:
-```bash
-terraform plan -var-file="environments/dev/terraform.tfvars"
-terraform apply -var-file="environments/dev/terraform.tfvars" -auto-approve
-```
+### Jumpbox 접속
 
-#### 4. 배포 검증
-```bash
-cd ../scripts
-./verify-deployment.sh
-```
-
-### 🎨 인프라 시각화
-
-Python diagrams 라이브러리를 사용하여 인프라 다이어그램을 생성할 수 있습니다:
+Azure Bastion을 통해 Linux Jumpbox에 SSH 접속합니다:
 
 ```bash
-cd src
-uv run visualize_infrastructure.py
+# Azure CLI를 통한 Bastion SSH 접속
+az network bastion ssh \
+  --name bastion-aifoundry \
+  --resource-group rg-aifoundry-20260211 \
+  --target-resource-id $(az vm show -g rg-aifoundry-20260211 -n vm-jumpbox-linux --query id -o tsv) \
+  --auth-type password \
+  --username azureuser
 ```
 
-## 네트워크 구성 상세
+또는 Azure Portal에서:
+1. Azure Portal > `bastion-aifoundry` 선택
+2. `vm-jumpbox-linux` (10.0.2.4) 연결
+3. 자격 증명 입력 후 SSH 접속
 
-### 전체 네트워크 아키텍처
+#### Jumpbox에 설치된 환경
 
-```mermaid
-flowchart TB
-    subgraph EUS["🌍 East US (메인 리전)"]
-        subgraph VNet1["🔒 vnet-aifoundry<br/>10.0.0.0/16"]
-            subgraph Subnet1["snet-aifoundry (10.0.1.0/24)<br/>Private Endpoints 전용"]
-                PE1["🔗 pe-aihub<br/>→ AI Foundry Hub"]
-                PE2["🔗 pe-storage-blob<br/>→ Storage Blob"]
-                PE3["🔗 pe-storage-file<br/>→ Storage File"]
-                PE4["🔗 pe-keyvault<br/>→ Key Vault"]
-                PE5["🔗 pe-openai<br/>→ Azure OpenAI"]
-                PE6["🔗 pe-search<br/>→ AI Search"]
-                PE7["🔗 pe-acr<br/>→ Container Registry"]
-                PE8["🔗 pe-apim<br/>→ API Management"]
-            end
-        end
-    end
+- Python 3.11 + 가상환경 (`/opt/ai-dev-env`)
+- Azure CLI
+- `openai`, `azure-identity`, `azure-ai-projects`, `azure-ai-inference` 패키지
+- git, curl, jq, vim, tmux, htop
 
-    subgraph KRC["🇰🇷 Korea Central (Jumpbox 리전)"]
-        subgraph VNet2["🔒 vnet-jumpbox-krc<br/>10.1.0.0/16"]
-            subgraph Subnet2["snet-jumpbox (10.1.1.0/24)<br/>Jumpbox VMs"]
-                WinVM["🖥️ vm-jb-win-krc<br/>10.1.1.4<br/>Windows 11 Pro<br/>Python, VS Code, Git, Azure CLI"]
-                LinuxVM["🐧 vm-jumpbox-linux-krc<br/>10.1.1.5<br/>Ubuntu 22.04<br/>Python, Docker, Azure CLI"]
-            end
-            subgraph BastionSubnet["AzureBastionSubnet<br/>10.1.255.0/26"]
-                Bastion["🛡️ bastion-jumpbox-krc<br/>Public IP, Standard SKU"]
-            end
-        end
-    end
+### AI Foundry 접근
 
-    VNet1 <-->|"🔄 VNet Peering<br/>peer-main-to-jumpbox<br/>peer-jumpbox-to-main"| VNet2
-    
-    style EUS fill:#e6f2ff,stroke:#0078D4
-    style KRC fill:#fff2e6,stroke:#FF6B35
-    style Subnet1 fill:#f0e6ff,stroke:#7B2C8C
-    style Subnet2 fill:#e6ffe6,stroke:#107C10
-    style BastionSubnet fill:#ffe6e6,stroke:#D13438
+Jumpbox에서 프라이빗 네트워크를 통해 AI Foundry에 접근합니다:
+
+```bash
+# Azure 로그인 (Jumpbox 내에서)
+az login
+
+# AI Foundry Hub 확인
+az ml workspace show --name aihub-foundry --resource-group rg-aifoundry-20260211
+
+# OpenAI 테스트 (Python)
+python3 -c "
+from openai import AzureOpenAI
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+token = credential.get_token('https://cognitiveservices.azure.com/.default')
+
+client = AzureOpenAI(
+    azure_endpoint='https://aoai-aifoundry-ujtfr8xs.openai.azure.com/',
+    azure_ad_token=token.token,
+    api_version='2024-02-15-preview'
+)
+
+response = client.chat.completions.create(
+    model='gpt-4o',
+    messages=[{'role': 'user', 'content': 'Hello!'}]
+)
+print(response.choices[0].message.content)
+"
 ```
-
-### VNet 및 서브넷 구성
-
-| VNet | 리전 | 주소 공간 | 용도 |
-|------|------|-----------|------|
-| `vnet-aifoundry` | East US | 10.0.0.0/16 | AI Foundry 및 관련 서비스 |
-| `vnet-jumpbox-krc` | Korea Central | 10.1.0.0/16 | 개발자 Jumpbox 및 Bastion |
-
-| 서브넷 | VNet | 주소 범위 | 가용 IP | 용도 |
-|--------|------|-----------|---------|------|
-| `snet-aifoundry` | vnet-aifoundry | 10.0.1.0/24 | 251개 | Private Endpoints |
-| `snet-jumpbox` | vnet-jumpbox-krc | 10.1.1.0/24 | 251개 | Jumpbox VMs |
-| `AzureBastionSubnet` | vnet-jumpbox-krc | 10.1.255.0/26 | 59개 | Azure Bastion (필수 이름) |
-
-### Network Security Groups (NSG)
-
-#### nsg-aifoundry (AI Foundry 서브넷)
-
-| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
-|----------|----------|------|------|------|------|------|------|
-| 100 | AllowAPIMManagement | Inbound | 3443 | ApiManagement | VirtualNetwork | Allow | APIM 관리 엔드포인트 |
-| 110 | AllowAzureLoadBalancer | Inbound | 6390 | AzureLoadBalancer | VirtualNetwork | Allow | Azure LB Health Probe |
-| 120 | AllowHTTPS | Inbound | 443 | VirtualNetwork | * | Allow | HTTPS 트래픽 |
-| 130 | AllowAPIMGateway | Inbound | 443 | Internet | VirtualNetwork | Allow | APIM Gateway |
-| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
-
-#### nsg-jumpbox-krc (Jumpbox 서브넷)
-
-| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 대상 | 동작 | 설명 |
-|----------|----------|------|------|------|------|------|------|
-| 100 | AllowRDPFromBastion | Inbound | 3389 | 10.1.255.0/26 | * | Allow | Bastion → Windows RDP |
-| 110 | AllowSSHFromBastion | Inbound | 22 | 10.1.255.0/26 | * | Allow | Bastion → Linux SSH |
-| 4096 | DenyAllInbound | Inbound | * | * | * | Deny | 기본 거부 |
-| 100 | AllowEastUSVNet | Outbound | * | 10.1.0.0/16 | 10.0.0.0/16 | Allow | East US VNet 접근 |
-| 200 | AllowInternet | Outbound | * | * | Internet | Allow | 패키지 설치용 |
-
-### 프라이빗 DNS 영역
-
-모든 Private DNS Zone은 **양쪽 VNet(East US, Korea Central)에 연결**되어 Jumpbox에서 프라이빗 엔드포인트로 DNS 해석이 가능합니다.
-
-| DNS 영역 | 용도 | 연결된 리소스 |
-|----------|------|--------------|
-| `privatelink.api.azureml.ms` | AI Foundry Hub API | aihub-foundry |
-| `privatelink.notebooks.azure.net` | AI Foundry Notebooks | aihub-foundry |
-| `privatelink.blob.core.windows.net` | Blob Storage | staifoundry20260128 |
-| `privatelink.file.core.windows.net` | File Storage | staifoundry20260128 |
-| `privatelink.vaultcore.azure.net` | Key Vault | kv-aif-e8txcj4l |
-| `privatelink.openai.azure.com` | Azure OpenAI | aoai-aifoundry |
-| `privatelink.cognitiveservices.azure.com` | Cognitive Services | aoai-aifoundry |
-| `privatelink.search.windows.net` | AI Search | srch-aifoundry-7kkykgt6 |
-| `privatelink.azurecr.io` | Container Registry | acraifoundryb658f2ug |
-| `privatelink.azure-api.net` | API Management | apim-aifoundry-zj85lf |
-
-### VNet Peering 구성
-
-```mermaid
-flowchart LR
-    subgraph EUS["vnet-aifoundry<br/>East US<br/>10.0.0.0/16"]
-        EUS_Services["🔗 Private Endpoints<br/>AI Hub, OpenAI, Storage,<br/>Key Vault, AI Search, ACR"]
-    end
-
-    subgraph KRC["vnet-jumpbox-krc<br/>Korea Central<br/>10.1.0.0/16"]
-        KRC_VMs["🖥️ Jumpbox VMs<br/>Windows, Linux"]
-    end
-
-    EUS -->|"peer-main-to-jumpbox<br/>✅ allow_forwarded_traffic<br/>❌ allow_gateway_transit"| KRC
-    KRC -->|"peer-jumpbox-to-main<br/>✅ allow_forwarded_traffic<br/>❌ use_remote_gateways"| EUS
-
-    style EUS fill:#e6f2ff,stroke:#0078D4
-    style KRC fill:#fff2e6,stroke:#FF6B35
-```
-
-**VNet Peering 목적:**
-- Korea Central의 Jumpbox에서 East US의 AI Foundry 리소스에 **프라이빗 접근**
-- 양방향 peering으로 양쪽 VNet 간 통신 가능
-- Private DNS Zone이 양쪽에 연결되어 DNS 해석 가능
-
-### 트래픽 흐름
-
-```mermaid
-flowchart TB
-    User["👤 User"]
-    Portal["🌐 Azure Portal"]
-    Bastion["🛡️ Azure Bastion<br/>bastion-jumpbox-krc"]
-    
-    subgraph JumpboxVMs["🖥️ Jumpbox VMs (Korea Central)"]
-        WinVM["🪟 Windows VM<br/>10.1.1.4<br/>VS Code, Python, Azure CLI, Git"]
-        LinuxVM["🐧 Linux VM<br/>10.1.1.5<br/>vim, Python, Azure CLI, Docker"]
-    end
-    
-    Peering["🔄 VNet Peering"]
-    
-    subgraph PrivateEndpoints["🔗 Private Endpoints (10.0.1.x)"]
-        PE_Hub["pe-aihub"]
-        PE_OpenAI["pe-openai"]
-        PE_Storage["pe-storage"]
-        PE_KV["pe-keyvault"]
-        PE_Search["pe-search"]
-    end
-    
-    subgraph AzureServices["☁️ Azure Services (East US)"]
-        AIHub["🏠 AI Hub"]
-        OpenAI["🧠 OpenAI"]
-        Storage["💾 Storage"]
-        KeyVault["🔐 Key Vault"]
-        AISearch["🔍 AI Search"]
-    end
-
-    User -->|"1️⃣ HTTPS"| Portal
-    Portal -->|"2️⃣ Secure Tunnel"| Bastion
-    Bastion -->|"3️⃣ RDP (3389)"| WinVM
-    Bastion -->|"3️⃣ SSH (22)"| LinuxVM
-    WinVM --> Peering
-    LinuxVM --> Peering
-    Peering --> PrivateEndpoints
-    PE_Hub -->|"Private Link"| AIHub
-    PE_OpenAI -->|"Private Link"| OpenAI
-    PE_Storage -->|"Private Link"| Storage
-    PE_KV -->|"Private Link"| KeyVault
-    PE_Search -->|"Private Link"| AISearch
-
-    style User fill:#fff,stroke:#333
-    style Bastion fill:#107C10,color:#fff
-    style Peering fill:#FFB900,stroke:#333
-    style PrivateEndpoints fill:#f0e6ff,stroke:#7B2C8C
-    style AzureServices fill:#e6f2ff,stroke:#0078D4
-```
-
-### 네트워크 보안 핵심 원칙
-
-| 원칙 | 설명 | 구현 |
-|------|------|------|
-| **Zero Trust** | 모든 서비스는 Private Endpoint를 통해서만 접근 | 공용 엔드포인트 비활성화 |
-| **최소 권한** | 필요한 포트만 열고 기본 거부 | NSG 규칙 최소화 |
-| **Bastion 필수** | Jumpbox VM에 Public IP 없음 | Azure Bastion만 접근 허용 |
-| **DNS 통합** | 양쪽 VNet에 모든 Private DNS Zone 연결 | VNet Link 10개 × 2 VNet |
-| **아웃바운드 제어** | 기본 아웃바운드 차단 | `default_outbound_access_enabled = false` |
-
-### Jumpbox 접근
-
-Azure Bastion을 통해 안전하게 Jumpbox에 접근합니다:
-
-1. Azure Portal에서 `bastion-jumpbox-krc` 선택
-2. Windows VM (`10.1.1.4`) 또는 Linux VM (`10.1.1.5`) 선택
-3. 자격 증명 입력 후 연결
-
-**자세한 접속 가이드**: [docs/troubleshooting-ai-foundry-access.md](docs/troubleshooting-ai-foundry-access.md)
 
 ## 문서
 
-### 📖 배포 및 구성 가이드
-
-- **[📘 상세 배포 가이드](docs/deployment-guide.md)** ⭐ **NEW**: 모든 Terraform 명령어 단계별 상세 설명, 선택적 구성 옵션, Private Networking 필수 설정
-- **[📗 Office 파일 RAG 가이드](docs/office-file-rag-guide.md)** ⭐ **NEW**: Office 파일 업로드 → Blob Storage → AI Search → Playground 전체 시나리오 구현 가이드
-- **[🔧 Jumpbox 오프라인 배포 스크립트](scripts/README.md)** ⭐ **NEW**: 인터넷 제한 환경에서 실행 가능한 Bash/PowerShell 스크립트 (문서 생성, 업로드, 인덱싱 자동화)
-- **[✅ 배포 검증 스크립트](scripts/verify-deployment.sh)** ⭐ **NEW**: 7가지 테스트로 배포 상태 자동 검증 (DNS, Storage, Search, RAG 패턴)
-
-### 🔐 보안 및 운영 가이드
-
-- **[Jumpbox 접속 및 문제 해결 가이드](docs/troubleshooting-ai-foundry-access.md)**: Azure Bastion을 통한 Jumpbox 접속, AI Foundry 접근 방법, 네트워크 진단 및 문제 해결
-- **[보안 모범 사례](docs/security-best-practices.md)**: 자격 증명 관리, SSH 키 인증, Terraform State 보호, 네트워크 보안 설정
+- **[배포 가이드](docs/deployment-guide.md)**: Terraform 배포 상세 절차
+- **[Office 파일 RAG 가이드](docs/office-file-rag-guide.md)**: Office 파일 업로드 + AI Search + Playground 시나리오
+- **[보안 모범 사례](docs/security-best-practices.md)**: 자격 증명 관리, SSH 키 인증, 네트워크 보안
 - **[비용 추정](docs/cost-estimation.md)**: 리소스별 예상 비용 및 절감 방안
-- **[AI Search RAG 가이드](docs/ai-search-rag-guide.md)**: AI Search를 활용한 RAG(Retrieval Augmented Generation) 패턴 구현 가이드
-
-### ⚙️ 인프라 문서
-
-- **[인프라 README](infra/README.md)**: Terraform 배포 상세 가이드
-- **[스크립트 README](infra/scripts/README.md)**: Terraform 자동화 스크립트 사용법
-- **[오류 요약](infra/ERROR_SUMMARY.md)**: Terraform 배포 중 발생 가능한 오류 및 해결 방법
-
-## 비용
-
-예상 월간 비용에 대한 자세한 내용은 [docs/cost-estimation.md](docs/cost-estimation.md)를 참조하세요.
-
-| 시나리오 | 월별 예상 비용 |
-|----------|---------------|
-| 최소 (유휴 상태) | ~$1,175 |
-| 일반 (개발 중) | ~$1,675 |
-| 최대 (활발한 사용) | ~$3,800 |
-
-> AI Search는 Private Endpoint 지원을 위해 Standard SKU를 사용합니다. Basic SKU로 변경 시 월 ~$171 절감 가능합니다.
+- **[AI Search RAG 가이드](docs/ai-search-rag-guide.md)**: RAG 패턴 구현 가이드
+- **[Jumpbox 접속 문제 해결](docs/troubleshooting-ai-foundry-access.md)**: 네트워크 진단 및 문제 해결
 
 ## 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 기여
-
-버그 리포트, 기능 제안, Pull Request를 환영합니다.

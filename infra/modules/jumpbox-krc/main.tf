@@ -22,6 +22,7 @@ resource "azurerm_subnet" "jumpbox" {
 
 # Azure Bastion Subnet (이름은 반드시 AzureBastionSubnet)
 resource "azurerm_subnet" "bastion" {
+  count                = var.enable_bastion ? 1 : 0
   name                 = "AzureBastionSubnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.jumpbox.name
@@ -113,6 +114,7 @@ resource "azurerm_subnet_network_security_group_association" "jumpbox" {
 
 # Public IP for Bastion
 resource "azurerm_public_ip" "bastion" {
+  count               = var.enable_bastion ? 1 : 0
   name                = "pip-bastion-krc"
   resource_group_name = var.resource_group_name
   location            = var.jumpbox_location
@@ -123,6 +125,7 @@ resource "azurerm_public_ip" "bastion" {
 
 # Azure Bastion Host
 resource "azurerm_bastion_host" "main" {
+  count               = var.enable_bastion ? 1 : 0
   name                = "bastion-jumpbox-krc"
   resource_group_name = var.resource_group_name
   location            = var.jumpbox_location
@@ -131,8 +134,8 @@ resource "azurerm_bastion_host" "main" {
 
   ip_configuration {
     name                 = "bastion-ip-config"
-    subnet_id            = azurerm_subnet.bastion.id
-    public_ip_address_id = azurerm_public_ip.bastion.id
+    subnet_id            = azurerm_subnet.bastion[0].id
+    public_ip_address_id = azurerm_public_ip.bastion[0].id
   }
 
   # Native client 지원 (az network bastion rdp/ssh 명령어 사용 가능)

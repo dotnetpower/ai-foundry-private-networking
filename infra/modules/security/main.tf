@@ -80,8 +80,11 @@ resource "azurerm_key_vault_access_policy" "managed_identity" {
   ]
 }
 
-# Private Endpoint for Key Vault
-resource "azurerm_private_endpoint" "key_vault" {
+# =============================================================================
+# Key Vault Private Endpoint
+# =============================================================================
+
+resource "azurerm_private_endpoint" "keyvault" {
   name                = "pe-keyvault"
   location            = var.location
   resource_group_name = var.resource_group_name
@@ -96,10 +99,7 @@ resource "azurerm_private_endpoint" "key_vault" {
   }
 
   private_dns_zone_group {
-    name                 = "pdnsz-group-keyvault"
+    name                 = "default"
     private_dns_zone_ids = [var.private_dns_zone_ids["vault"]]
   }
 }
-
-# Note: Private DNS Zone for Key Vault is managed by the networking module
-# (privatelink.vaultcore.azure.net)

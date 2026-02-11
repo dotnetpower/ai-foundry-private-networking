@@ -8,28 +8,17 @@ variable "location" {
   type        = string
 }
 
-variable "vnet_id" {
-  description = "Virtual Network ID"
-  type        = string
-}
-
-variable "create_private_dns_zone" {
-  description = "Whether to create Private DNS Zone or use existing"
-  type        = bool
-  default     = true
+variable "tags" {
+  description = "리소스 태그"
+  type        = map(string)
 }
 
 variable "subnet_id" {
-  description = "서브넷 ID (Private Endpoint용)"
+  description = "Private Endpoint를 배치할 서브넷 ID"
   type        = string
 }
 
 variable "private_dns_zone_ids" {
-  description = "Private DNS Zone ID 맵"
-  type        = map(string)
-}
-
-variable "tags" {
-  description = "리소스 태그"
+  description = "Private DNS Zone IDs (vault)"
   type        = map(string)
 }

@@ -7,7 +7,7 @@ resource "azurerm_cognitive_account" "openai" {
   sku_name                      = "S0"
   custom_subdomain_name         = "aoai-aifoundry-${random_string.openai_suffix.result}"
   public_network_access_enabled = false
-  local_auth_enabled            = true # API Key 인증 활성화
+  local_auth_enabled            = true
 
   network_acls {
     default_action = "Deny"
@@ -65,27 +65,6 @@ resource "azurerm_cognitive_deployment" "embedding" {
   }
 }
 
-# Private Endpoint for OpenAI
-resource "azurerm_private_endpoint" "openai" {
-  name                = "pe-openai"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  subnet_id           = var.subnet_id
-  tags                = var.tags
-
-  private_service_connection {
-    name                           = "psc-openai"
-    private_connection_resource_id = azurerm_cognitive_account.openai.id
-    is_manual_connection           = false
-    subresource_names              = ["account"]
-  }
-
-  private_dns_zone_group {
-    name                 = "pdnsz-group-openai"
-    private_dns_zone_ids = [var.private_dns_zone_ids["openai"]]
-  }
-}
-
 # Azure AI Search
 resource "azurerm_search_service" "main" {
   name                          = "srch-aifoundry-${random_string.suffix.result}"
@@ -112,7 +91,32 @@ resource "random_string" "suffix" {
   }
 }
 
-# Private Endpoint for AI Search
+# =============================================================================
+# Private Endpoints
+# =============================================================================
+
+# Azure OpenAI Private Endpoint
+resource "azurerm_private_endpoint" "openai" {
+  name                = "pe-openai"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-openai"
+    private_connection_resource_id = azurerm_cognitive_account.openai.id
+    is_manual_connection           = false
+    subresource_names              = ["account"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [var.private_dns_zone_ids["openai"]]
+  }
+}
+
+# AI Search Private Endpoint
 resource "azurerm_private_endpoint" "search" {
   name                = "pe-search"
   location            = var.location
@@ -128,25 +132,7 @@ resource "azurerm_private_endpoint" "search" {
   }
 
   private_dns_zone_group {
-    name = "pdnsz-group-search"
-    private_dns_zone_ids = [
-      azurerm_private_dns_zone.search.id
-    ]
+    name                 = "default"
+    private_dns_zone_ids = [var.private_dns_zone_ids["search"]]
   }
-}
-
-# Private DNS Zone for AI Search
-resource "azurerm_private_dns_zone" "search" {
-  name                = "privatelink.search.windows.net"
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-# Private DNS Zone VNet Link for AI Search
-resource "azurerm_private_dns_zone_virtual_network_link" "search" {
-  name                  = "link-search"
-  resource_group_name   = var.resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.search.name
-  virtual_network_id    = var.vnet_id
-  tags                  = var.tags
 }

@@ -40,3 +40,9 @@ variable "private_dns_zone_ids" {
   description = "Private DNS Zone IDs (networking 모듈에서 전달)"
   type        = map(string)
 }
+
+variable "enable_bastion" {
+  description = "Azure Bastion 활성화 여부"
+  type        = bool
+  default     = true
+}

@@ -11,11 +11,6 @@ terraform {
       version = "~> 1.10"
     }
   }
-
-  # 로컬 상태 파일 사용 (APIM 추가 배포용)
-  # backend "azurerm" {
-  #   use_azuread_auth = true
-  # }
 }
 
 provider "azurerm" {
@@ -37,20 +32,19 @@ provider "azapi" {}
 
 # 배포 날짜 및 자동 이름 생성
 locals {
-  # 배포 날짜 (변수로 전달되지 않으면 현재 날짜 사용)
   deploy_date = var.deploy_date != "" ? var.deploy_date : formatdate("YYYYMMDD", timestamp())
 
-  # 리소스 그룹 이름 자동 생성
   resource_group_name = var.resource_group_name != "" ? var.resource_group_name : "rg-${var.project_name}-${local.deploy_date}"
 
-  # 스토리지 계정 이름 자동 생성 (최대 24자, 소문자+숫자만)
   storage_account_name = "st${var.project_name}${local.deploy_date}"
 
-  # 배포 정보 태그 추가
   common_tags = merge(var.tags, {
     DeployDate = local.deploy_date
   })
 }
+
+# 배포 시간 측정
+resource "time_static" "deploy_start" {}
 
 # Resource Group
 resource "azurerm_resource_group" "main" {
@@ -59,7 +53,9 @@ resource "azurerm_resource_group" "main" {
   tags     = local.common_tags
 }
 
-# Networking 모듈
+# =============================================================================
+# Networking 모듈 (VNet, Subnets, NSGs, Private DNS Zones)
+# =============================================================================
 module "networking" {
   source = "./modules/networking"
 
@@ -67,48 +63,69 @@ module "networking" {
   location            = azurerm_resource_group.main.location
   vnet_address_space  = var.vnet_address_space
   subnet_config       = var.subnet_config
-  tags                = var.tags
+  tags                = local.common_tags
 }
 
-# Security 모듈
+# =============================================================================
+# Security 모듈 (Key Vault, Managed Identity + Key Vault PE)
+# =============================================================================
 module "security" {
   source = "./modules/security"
 
-  resource_group_name     = azurerm_resource_group.main.name
-  location                = azurerm_resource_group.main.location
-  vnet_id                 = module.networking.vnet_id
-  subnet_id               = module.networking.ai_foundry_subnet_id
-  private_dns_zone_ids    = module.networking.private_dns_zone_ids
-  create_private_dns_zone = false # 이미 존재하는 DNS Zone 사용
-  tags                    = var.tags
+  resource_group_name  = azurerm_resource_group.main.name
+  location             = azurerm_resource_group.main.location
+  tags                 = local.common_tags
+  subnet_id            = module.networking.ai_foundry_subnet_id
+  private_dns_zone_ids = module.networking.private_dns_zone_ids
+
+  depends_on = [module.networking]
 }
 
-# Storage 모듈
+# =============================================================================
+# Storage 모듈 (Storage Account, ACR + Private Endpoints)
+# =============================================================================
 module "storage" {
   source = "./modules/storage"
 
   resource_group_name  = azurerm_resource_group.main.name
   location             = azurerm_resource_group.main.location
   storage_account_name = local.storage_account_name
-  subnet_id            = module.networking.ai_foundry_subnet_id
-  vnet_id              = module.networking.vnet_id
-  private_dns_zone_ids = module.networking.private_dns_zone_ids
   tags                 = local.common_tags
+  subnet_id            = module.networking.ai_foundry_subnet_id
+  private_dns_zone_ids = module.networking.private_dns_zone_ids
+
+  depends_on = [module.networking]
 }
 
-# Cognitive Services 모듈 (Azure OpenAI 포함)
+# =============================================================================
+# Cognitive Services 모듈 (Azure OpenAI, AI Search + Private Endpoints)
+# =============================================================================
 module "cognitive_services" {
   source = "./modules/cognitive-services"
 
   resource_group_name  = azurerm_resource_group.main.name
   location             = azurerm_resource_group.main.location
+  tags                 = local.common_tags
   subnet_id            = module.networking.ai_foundry_subnet_id
-  vnet_id              = module.networking.vnet_id
   private_dns_zone_ids = module.networking.private_dns_zone_ids
-  tags                 = var.tags
+
+  depends_on = [module.networking]
 }
 
-# AI Foundry 모듈
+# =============================================================================
+# Monitoring 모듈 (Log Analytics, Application Insights)
+# =============================================================================
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  tags                = local.common_tags
+}
+
+# =============================================================================
+# AI Foundry 모듈 (Hub, Project, Connections, RBAC + Hub PE)
+# =============================================================================
 module "ai_foundry" {
   source = "./modules/ai-foundry"
 
@@ -119,80 +136,43 @@ module "ai_foundry" {
   key_vault_id            = module.security.key_vault_id
   container_registry_id   = module.storage.container_registry_id
   application_insights_id = module.monitoring.application_insights_id
+  tags                    = local.common_tags
   subnet_id               = module.networking.ai_foundry_subnet_id
   private_dns_zone_ids    = module.networking.private_dns_zone_ids
-  tags                    = var.tags
 
-  # Azure OpenAI 연결 (AAD 인증 - Managed Identity)
+  # Azure OpenAI 연결 (AAD 인증)
   openai_resource_id = module.cognitive_services.openai_id
   openai_endpoint    = module.cognitive_services.openai_endpoint
-  openai_api_key     = "" # AAD 인증 사용으로 불필요
+  openai_api_key     = ""
 
-  # Azure AI Search 연결 (AAD 인증 - Managed Identity)
+  # Azure AI Search 연결 (AAD 인증)
   ai_search_endpoint = module.cognitive_services.ai_search_endpoint
-  ai_search_api_key  = "" # AAD 인증 사용으로 불필요
+  ai_search_api_key  = ""
   ai_search_id       = module.cognitive_services.ai_search_id
 
-  depends_on = [module.cognitive_services]
+  depends_on = [
+    module.networking,
+    module.cognitive_services,
+    module.storage,
+    module.security,
+    module.monitoring
+  ]
 }
 
-# Monitoring 모듈
-module "monitoring" {
-  source = "./modules/monitoring"
+# =============================================================================
+# Jumpbox 모듈 (Linux VM + Azure Bastion)
+# =============================================================================
+module "jumpbox" {
+  source = "./modules/jumpbox"
 
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  tags                = var.tags
-}
-
-# Jumpbox 모듈 (East US - 주석 처리됨)
-# module "jumpbox" {
-#   source = "./modules/jumpbox"
-#
-#   resource_group_name = azurerm_resource_group.main.name
-#   location            = azurerm_resource_group.main.location
-#   subnet_id           = module.networking.jumpbox_subnet_id
-#   admin_username      = var.jumpbox_admin_username
-#   admin_password      = var.jumpbox_admin_password
-#   tags                = var.tags
-# }
-
-# Jumpbox 모듈 (Korea Central)
-module "jumpbox_krc" {
-  source = "./modules/jumpbox-krc"
-
-  resource_group_name  = azurerm_resource_group.main.name
-  jumpbox_location     = "koreacentral"
-  main_vnet_id         = module.networking.vnet_id
-  main_vnet_name       = module.networking.vnet_name
-  admin_username       = var.jumpbox_admin_username
-  admin_password       = var.jumpbox_admin_password
-  private_dns_zone_ids = module.networking.private_dns_zone_ids
-  tags                 = var.tags
+  jumpbox_subnet_id   = module.networking.jumpbox_subnet_id
+  bastion_subnet_id   = module.networking.bastion_subnet_id
+  admin_username      = var.admin_username
+  admin_password      = var.admin_password
+  enable_bastion      = var.enable_bastion
+  tags                = local.common_tags
 
   depends_on = [module.networking]
-}
-
-# API Management 모듈 (배포 시간이 30-45분 소요)
-module "apim" {
-  source = "./modules/apim"
-
-  resource_group_name                      = azurerm_resource_group.main.name
-  location                                 = azurerm_resource_group.main.location
-  subnet_id                                = module.networking.ai_foundry_subnet_id
-  publisher_name                           = "AI Foundry Team"
-  publisher_email                          = var.publisher_email
-  sku_name                                 = var.apim_sku_name
-  openai_endpoint                          = module.cognitive_services.openai_hostname
-  openai_api_key                           = module.cognitive_services.openai_api_key
-  application_insights_id                  = module.monitoring.application_insights_id
-  application_insights_instrumentation_key = module.monitoring.application_insights_instrumentation_key
-  private_dns_zone_id                      = module.networking.private_dns_zone_ids["apim"]
-  tags                                     = var.tags
-
-  depends_on = [
-    module.cognitive_services,
-    module.monitoring,
-    module.networking
-  ]
 }
