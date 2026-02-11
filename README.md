@@ -340,6 +340,48 @@ flowchart LR
 | Key Vault | `Disabled` | Private Endpoint 전용 |
 | Container Registry | `Disabled` | Private Endpoint 전용 |
 
+> **[중요] Azure OpenAI 네트워크 설정 확인 및 bypass 구성**
+>
+> AI Foundry Agent가 OpenAI에 접근 시 **403 "Public access is disabled"** 오류가 발생하면,
+> `networkAcls.bypass = "AzureServices"` 설정이 누락된 것입니다.
+> 이 설정이 없으면 Hub Managed PE를 통한 접근도 차단됩니다.
+>
+> **Azure Portal 확인 경로**: `Azure OpenAI 리소스` → `Networking` → `Firewalls and virtual networks` 탭
+> - `Allow access from`: Disabled 확인
+> - `Allow Azure services on the trusted services list`: 반드시 체크 (= `bypass: AzureServices`)
+> - `Private endpoint connections` 탭: `pe-openai`, `managed-pe-openai` 모두 Approved 확인
+
+```bash
+# 1. OpenAI 네트워크 설정 전체 확인 (publicNetworkAccess, networkAcls, bypass)
+az cognitiveservices account show \
+  --name <openai-account-name> \
+  --resource-group <resource-group> \
+  --query "{publicNetworkAccess: properties.publicNetworkAccess, networkAcls: properties.networkAcls}" \
+  -o json
+
+# 2. Private Endpoint 연결 상태 확인
+az cognitiveservices account show \
+  --name <openai-account-name> \
+  --resource-group <resource-group> \
+  --query "properties.privateEndpointConnections[].{name:name, status:properties.privateLinkServiceConnectionState.status}" \
+  -o table
+
+# 3. networkAcls.bypass = AzureServices 설정 (azurerm에서 미지원, REST API 사용)
+az rest --method PATCH \
+  --url "https://management.azure.com/subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<openai-account-name>?api-version=2023-10-01-preview" \
+  --body '{"properties":{"networkAcls":{"bypass":"AzureServices"}}}'
+
+# 4. bypass 설정 결과 확인
+az cognitiveservices account show \
+  --name <openai-account-name> \
+  --resource-group <resource-group> \
+  --query "properties.networkAcls.bypass" -o tsv
+# 기대 결과: AzureServices
+```
+
+> **참고**: Terraform `azurerm_cognitive_account`는 `network_acls.bypass` 속성을 지원하지 않습니다.
+> Terraform으로 관리하려면 `azapi_update_resource`를 사용하세요.
+
 ### Private DNS Zones
 
 | DNS Zone | 용도 |
