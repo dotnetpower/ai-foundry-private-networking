@@ -15,6 +15,8 @@ Azure Bastion + Jumpbox를 통해 프라이빗 네트워크 내에서 AI Foundry
 - 9개 Private DNS Zone을 통한 이름 해석
 - Azure Bastion을 통한 보안 접속
 - Linux Jumpbox VM (Python 개발 환경 자동 구성)
+- Windows Jumpbox VM (Portal/GUI 접속 환경)
+- NAT Gateway를 통한 Jumpbox 아웃바운드 인터넷 접근
 - AAD(Managed Identity) 인증 기반 서비스 간 연결
 
 ## 아키텍처
@@ -36,8 +38,10 @@ Sweden Central 단일 리전에 **Private Networking** 구성으로 배포되어
 │  │  │  pe-openai, pe-search, pe-acr                                   │ │ │
 │  │  └─────────────────────────────────────────────────────────────────┘ │ │
 │  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
-│  │  │  snet-jumpbox (10.0.2.0/24) - Jumpbox VM                        │ │ │
-│  │  │  vm-jumpbox-linux (10.0.2.4) - Ubuntu 22.04                     │ │ │
+│  │  │  snet-jumpbox (10.0.2.0/24) - Jumpbox VMs                       │ │ │
+│  │  │  vm-jumpbox-linux (10.0.2.4) - Ubuntu 22.04 (CLI/개발)           │ │ │
+│  │  │  vm-jumpbox-win             - Windows 11 Pro (Portal/GUI)        │ │ │
+│  │  │  ── nat-jumpbox (NAT Gateway) ── pip-nat-jumpbox → 인터넷       │ │ │
 │  │  └─────────────────────────────────────────────────────────────────┘ │ │
 │  │  ┌─────────────────────────────────────────────────────────────────┐ │ │
 │  │  │  AzureBastionSubnet (10.0.255.0/26) - Bastion Host 전용         │ │ │
@@ -53,6 +57,7 @@ Sweden Central 단일 리전에 **Private Networking** 구성으로 배포되어
 graph TB
     subgraph Internet["인터넷"]
         User["사용자"]
+        WebSites["ai.azure.com\nportal.azure.com"]
     end
 
     subgraph Azure["Azure - Sweden Central"]
@@ -63,7 +68,9 @@ graph TB
                 end
                 subgraph JumpboxSubnet["snet-jumpbox (10.0.2.0/24)"]
                     LinuxVM["vm-jumpbox-linux\n10.0.2.4\nUbuntu 22.04"]
+                    WinVM["vm-jumpbox-win\nWindows 11 Pro"]
                 end
+                NAT["nat-jumpbox\nNAT Gateway"]
                 subgraph PESubnet["snet-aifoundry (10.0.1.0/24)"]
                     PE1["pe-aihub"]
                     PE2["pe-storage-blob"]
@@ -88,7 +95,11 @@ graph TB
 
     User -->|HTTPS| Bastion
     Bastion -->|SSH:22| LinuxVM
+    Bastion -->|RDP:3389| WinVM
     LinuxVM -->|Private DNS| PESubnet
+    WinVM -->|Private DNS| PESubnet
+    JumpboxSubnet -->|아웃바운드| NAT
+    NAT -->|pip-nat-jumpbox| WebSites
 
     PE1 --- Hub
     PE2 --- Storage
@@ -105,26 +116,176 @@ graph TB
     style BastionSubnet fill:#fff3e0
 ```
 
-### 트래픽 흐름
+## 트래픽 흐름 상세
+
+이 인프라에서 발생하는 트래픽은 크게 3가지 유형으로 나뉩니다.
+
+### 1. 인바운드 트래픽: 사용자 → Jumpbox (Bastion 경유)
+
+사용자가 Jumpbox에 접속하는 유일한 경로입니다. Public IP가 없는 Jumpbox에 Azure Bastion을 통해 접근합니다.
 
 ```
-[사용자] ──HTTPS──> [Azure Portal / Bastion Public IP]
-                            │
-                            ▼
-              [Azure Bastion (10.0.255.0/26)]
-                            │
-                        SSH (22)
-                            │
-                            ▼
-              [Jumpbox VM (10.0.2.4)]
-                            │
-                      Private DNS
-                            │
-                            ▼
-              [Private Endpoint (10.0.1.x)]
-                            │
-                            ▼
-              [Azure Service (AI Foundry, OpenAI, etc.)]
+[사용자 브라우저/CLI]
+        │
+        │ HTTPS (443) ── Azure Portal 또는 az network bastion 명령
+        ▼
+┌─────────────────────────────┐
+│  Azure Bastion              │
+│  bastion-aifoundry          │
+│  pip-bastion (Public IP)    │
+│  AzureBastionSubnet         │
+│  (10.0.255.0/26)            │
+└─────────────────────────────┘
+        │                  │
+    SSH (22)          RDP (3389)
+    ▼                      ▼
+┌──────────────┐  ┌──────────────┐
+│ Linux VM     │  │ Windows VM   │
+│ 10.0.2.4     │  │ vm-jumpbox-  │
+│ vm-jumpbox-  │  │ win          │
+│ linux        │  │              │
+│ CLI/Python   │  │ Browser/GUI  │
+└──────────────┘  └──────────────┘
+```
+
+| 구간 | 프로토콜 | 포트 | NSG 규칙 |
+|------|---------|------|----------|
+| 사용자 → Bastion | HTTPS | 443 | Azure 관리 (자동) |
+| Bastion → Linux VM | TCP | 22 | `AllowSSHFromBastion` (nsg-jumpbox, priority 100) |
+| Bastion → Windows VM | TCP | 3389 | `AllowRDPFromBastion` (nsg-jumpbox, priority 110) |
+
+### 2. 프라이빗 트래픽: Jumpbox → Azure 서비스 (Private Endpoint 경유)
+
+Jumpbox에서 AI Foundry, OpenAI 등 Azure 서비스에 접근하는 경로입니다. 모든 트래픽은 VNet 내부의 Private Endpoint를 통해 전달되며, 인터넷을 거치지 않습니다.
+
+```
+┌──────────────────────┐
+│  Jumpbox VM          │
+│  snet-jumpbox        │
+│  (10.0.2.0/24)       │
+└──────────────────────┘
+        │
+        │ HTTPS (443) - VNet 내부 트래픽
+        │ Private DNS로 이름 해석
+        │   예: aihub-foundry....api.azureml.ms
+        │       → privatelink.api.azureml.ms
+        │       → 10.0.1.x (Private Endpoint IP)
+        ▼
+┌──────────────────────────────────────────────────────────┐
+│  snet-aifoundry (10.0.1.0/24) - Private Endpoints       │
+│                                                          │
+│  pe-aihub ─────────→ AI Hub (aihub-foundry)              │
+│  pe-openai ────────→ Azure OpenAI (aoai-aifoundry)       │
+│  pe-search ────────→ AI Search (srch-aifoundry-27y5yxhp) │
+│  pe-storage-blob ──→ Storage Blob (staifoundry20260211)  │
+│  pe-storage-file ──→ Storage File (staifoundry20260211)  │
+│  pe-keyvault ──────→ Key Vault (kv-aif-e5xwo8r1)         │
+│  pe-acr ───────────→ ACR (acraifoundry2tynvt2g)          │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### DNS 해석 흐름
+
+```
+Jumpbox가 aihub-foundry.api.azureml.ms 에 접근 시:
+
+  1. VNet DNS → Private DNS Zone 조회
+  2. privatelink.api.azureml.ms Zone에서 A 레코드 반환
+  3. 10.0.1.x (pe-aihub의 NIC IP) 반환
+  4. VNet 내부 라우팅으로 Private Endpoint에 도달
+  5. Private Endpoint가 실제 서비스에 연결
+```
+
+| 대상 서비스 | Private DNS Zone | NSG 규칙 |
+|------------|-------------------|----------|
+| AI Hub / Project | `privatelink.api.azureml.ms`, `privatelink.notebooks.azure.net` | `AllowHTTPS` (nsg-aifoundry, priority 120) |
+| Azure OpenAI | `privatelink.openai.azure.com` | 동일 |
+| AI Search | `privatelink.search.windows.net` | 동일 |
+| Storage Blob | `privatelink.blob.core.windows.net` | 동일 |
+| Storage File | `privatelink.file.core.windows.net` | 동일 |
+| Key Vault | `privatelink.vaultcore.azure.net` | 동일 |
+| Container Registry | `privatelink.azurecr.io` | 동일 |
+
+### 3. 아웃바운드 트래픽: Jumpbox → 인터넷 (NAT Gateway 경유)
+
+Jumpbox에서 ai.azure.com, portal.azure.com 등 공용 웹사이트에 접속하거나 패키지를 설치할 때 사용되는 경로입니다.
+서브넷의 `defaultOutboundAccess = false` 설정으로 기본 아웃바운드가 차단되어 있으므로, NAT Gateway를 통해서만 인터넷에 접근할 수 있습니다.
+
+```
+┌──────────────────────┐
+│  Jumpbox VM          │
+│  snet-jumpbox        │
+│  (10.0.2.0/24)       │
+└──────────────────────┘
+        │
+        │ 아웃바운드 트래픽
+        ▼
+┌──────────────────────┐
+│  NAT Gateway         │
+│  nat-jumpbox         │
+│  pip-nat-jumpbox     │
+│  (Static Public IP)  │
+└──────────────────────┘
+        │
+        │ SNAT (Source NAT)
+        ▼
+┌──────────────────────┐
+│  인터넷               │
+│  - ai.azure.com      │
+│  - portal.azure.com  │
+│  - pypi.org          │
+│  - github.com        │
+│  - aka.ms            │
+└──────────────────────┘
+```
+
+| 구간 | 방식 | NSG 규칙 |
+|------|------|----------|
+| Jumpbox → VNet | VNet 내부 | `AllowVNetOutbound` (nsg-jumpbox, priority 100) |
+| Jumpbox → 인터넷 | NAT Gateway (SNAT) | `AllowInternet` (nsg-jumpbox, priority 200) |
+
+### 4. Hub Managed Network 트래픽: AI Hub ↔ 의존 서비스
+
+AI Hub는 자체 Managed Network(`AllowInternetOutbound` 모드)를 가지며, Hub의 컴퓨팅이 Storage, Key Vault, ACR 등에 접근할 때 Azure가 자동으로 관리하는 Private Endpoint를 통해 통신합니다.
+
+```
+┌──────────────────────────────────┐
+│  AI Hub Managed Network          │
+│  (AllowInternetOutbound 모드)     │
+│                                  │
+│  Hub Managed PE (자동 생성)       │
+│  ├── → Storage Account           │
+│  ├── → Key Vault                 │
+│  ├── → Container Registry        │
+│  └── → Azure OpenAI / AI Search  │
+│        (Hub Connections 통해)     │
+└──────────────────────────────────┘
+```
+
+> **참고**: `AllowInternetOutbound` 모드는 Hub 컴퓨팅의 아웃바운드 인터넷 접근을 허용하는 모드이며, 이 모드에서도 `publicNetworkAccess`는 `Disabled`로 강제됩니다. 즉, Hub에 대한 인바운드 접근은 반드시 사용자가 만든 Private Endpoint(pe-aihub)를 통해야 합니다.
+
+### 트래픽 흐름 전체 요약
+
+```mermaid
+flowchart LR
+    subgraph Inbound["인바운드"]
+        A[사용자] -->|HTTPS| B[Bastion]
+        B -->|SSH/RDP| C[Jumpbox]
+    end
+    subgraph Private["프라이빗"]
+        C -->|HTTPS via PE| D[Azure 서비스]
+    end
+    subgraph Outbound["아웃바운드"]
+        C -->|NAT Gateway| E[인터넷]
+    end
+    subgraph Managed["Hub Managed"]
+        D -->|Managed PE| F[의존 서비스]
+    end
+
+    style Inbound fill:#fff3e0
+    style Private fill:#e1f5fe
+    style Outbound fill:#e8f5e9
+    style Managed fill:#f3e5f5
 ```
 
 ### 배포된 리소스 목록
@@ -149,7 +310,10 @@ graph TB
 | | Managed Identity | `id-aifoundry` | User Assigned |
 | **모니터링** | Log Analytics | `log-aifoundry` | |
 | | Application Insights | `appi-aifoundry` | |
+| **NAT Gateway** | NAT Gateway | `nat-jumpbox` | Jumpbox 아웃바운드 인터넷 |
+| | Public IP | `pip-nat-jumpbox` | NAT용 Static IP |
 | **Jumpbox** | Linux VM | `vm-jumpbox-linux` | 10.0.2.4, Standard_D4s_v3 |
+| | Windows VM | `vm-jumpbox-win` | Windows 11 Pro, Standard_D4s_v3 |
 | | Bastion Host | `bastion-aifoundry` | Standard SKU |
 
 ### Private Endpoints
@@ -201,12 +365,13 @@ graph TB
 
 #### nsg-jumpbox (Jumpbox 서브넷)
 
-| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 동작 |
-|----------|----------|------|------|------|------|
-| 100 | AllowSSHFromBastion | Inbound | 22 | 10.0.255.0/26 | Allow |
-| 4096 | DenyAllInbound | Inbound | * | * | Deny |
-| 100 | AllowVNetOutbound | Outbound | * | VNet | Allow |
-| 200 | AllowInternet | Outbound | * | Internet | Allow |
+| 우선순위 | 규칙 이름 | 방향 | 포트 | 소스 | 동작 | 용도 |
+|----------|----------|------|------|------|------|------|
+| 100 | AllowSSHFromBastion | Inbound | 22 | 10.0.255.0/26 | Allow | Bastion → Linux SSH |
+| 110 | AllowRDPFromBastion | Inbound | 3389 | 10.0.255.0/26 | Allow | Bastion → Windows RDP |
+| 4095 | DenyAllInbound | Inbound | * | * | Deny | 기본 거부 |
+| 100 | AllowVNetOutbound | Outbound | * | VNet | Allow | PE 접근 |
+| 200 | AllowInternet | Outbound | * | Internet | Allow | NAT Gateway 경유 |
 
 ### 네트워크 보안 핵심 원칙
 
@@ -216,7 +381,7 @@ graph TB
 | **최소 권한** | NSG에서 필요한 포트만 열고 기본 거부 |
 | **Bastion 필수** | Jumpbox VM에 Public IP 없음, Azure Bastion만 접근 허용 |
 | **AAD 인증** | 서비스 간 연결은 Managed Identity 기반 AAD 인증 |
-| **아웃바운드 제어** | `default_outbound_access_enabled = false` |
+| **아웃바운드 제어** | `default_outbound_access_enabled = false`, NAT Gateway를 통해서만 인터넷 접근 |
 
 ## 프로젝트 구조
 
@@ -236,7 +401,7 @@ graph TB
 │   │   ├── security/               # Key Vault, Managed Identity, KV PE
 │   │   ├── monitoring/             # Application Insights, Log Analytics
 │   │   ├── cognitive-services/     # Azure OpenAI, AI Search, OpenAI/Search PE
-│   │   └── jumpbox/                # Linux VM, Azure Bastion
+│   │   └── jumpbox/                # Linux/Windows VM, Azure Bastion, NAT Gateway
 │   └── scripts/                    # 배포 자동화 스크립트
 ├── src/                            # Python 소스 코드
 │   └── visualize/                  # 인프라 시각화
@@ -270,10 +435,9 @@ terraform apply -var-file=environments/dev/terraform.tfvars -auto-approve
 
 ### Jumpbox 접속
 
-Azure Bastion을 통해 Linux Jumpbox에 SSH 접속합니다:
+#### Linux Jumpbox (SSH - CLI/개발 환경)
 
 ```bash
-# Azure CLI를 통한 Bastion SSH 접속
 az network bastion ssh \
   --name bastion-aifoundry \
   --resource-group rg-aifoundry-20260211 \
@@ -282,17 +446,23 @@ az network bastion ssh \
   --username azureuser
 ```
 
+설치된 환경: Python 3.11 + venv (`/opt/ai-dev-env`), Azure CLI, openai/azure-identity 패키지, git, jq, vim, tmux
+
+#### Windows Jumpbox (RDP - Portal/GUI 환경)
+
+```bash
+az network bastion rdp \
+  --name bastion-aifoundry \
+  --resource-group rg-aifoundry-20260211 \
+  --target-resource-id $(az vm show -g rg-aifoundry-20260211 -n vm-jumpbox-win --query id -o tsv)
+```
+
 또는 Azure Portal에서:
 1. Azure Portal > `bastion-aifoundry` 선택
-2. `vm-jumpbox-linux` (10.0.2.4) 연결
-3. 자격 증명 입력 후 SSH 접속
+2. 대상 VM 선택 (`vm-jumpbox-linux` 또는 `vm-jumpbox-win`)
+3. 자격 증명 입력 후 접속
 
-#### Jumpbox에 설치된 환경
-
-- Python 3.11 + 가상환경 (`/opt/ai-dev-env`)
-- Azure CLI
-- `openai`, `azure-identity`, `azure-ai-projects`, `azure-ai-inference` 패키지
-- git, curl, jq, vim, tmux, htop
+Windows Jumpbox에서는 브라우저를 통해 **ai.azure.com** 포털에 직접 접근할 수 있습니다 (NAT Gateway 경유).
 
 ### AI Foundry 접근
 

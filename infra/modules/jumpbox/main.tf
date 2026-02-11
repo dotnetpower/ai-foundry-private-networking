@@ -126,3 +126,56 @@ resource "azurerm_linux_virtual_machine" "main" {
   EOF
   )
 }
+
+# =============================================================================
+# Windows Jumpbox (Portal 접속용 - GUI 환경)
+# =============================================================================
+
+# Network Interface for Windows Jumpbox (공인 IP 없음)
+resource "azurerm_network_interface" "windows" {
+  count               = var.enable_windows_jumpbox ? 1 : 0
+  name                = "nic-jumpbox-windows"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  tags                = var.tags
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = var.jumpbox_subnet_id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+# Windows Virtual Machine
+resource "azurerm_windows_virtual_machine" "main" {
+  count               = var.enable_windows_jumpbox ? 1 : 0
+  name                = "vm-jumpbox-win"
+  computer_name       = "devpc-win"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  size                = "Standard_D4s_v3"
+  admin_username      = var.admin_username
+  admin_password      = var.admin_password
+  tags                = var.tags
+
+  network_interface_ids = [
+    azurerm_network_interface.windows[0].id
+  ]
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Premium_LRS"
+    disk_size_gb         = 256
+  }
+
+  source_image_reference {
+    publisher = "MicrosoftWindowsDesktop"
+    offer     = "windows-11"
+    sku       = "win11-24h2-pro"
+    version   = "latest"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+}

@@ -31,6 +31,37 @@ resource "azurerm_subnet" "jumpbox" {
   default_outbound_access_enabled = false
 }
 
+# =============================================================================
+# NAT Gateway (Jumpbox 서브넷 아웃바운드 인터넷 접근용)
+# =============================================================================
+
+resource "azurerm_public_ip" "nat" {
+  name                = "pip-nat-jumpbox"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = var.tags
+}
+
+resource "azurerm_nat_gateway" "jumpbox" {
+  name                = "nat-jumpbox"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  sku_name            = "Standard"
+  tags                = var.tags
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "jumpbox" {
+  nat_gateway_id       = azurerm_nat_gateway.jumpbox.id
+  public_ip_address_id = azurerm_public_ip.nat.id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "jumpbox" {
+  subnet_id      = azurerm_subnet.jumpbox.id
+  nat_gateway_id = azurerm_nat_gateway.jumpbox.id
+}
+
 # Subnet - Azure Bastion (이름은 반드시 AzureBastionSubnet)
 resource "azurerm_subnet" "bastion" {
   name                 = "AzureBastionSubnet"
@@ -91,6 +122,19 @@ resource "azurerm_network_security_group" "jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
+    source_address_prefix      = "10.0.255.0/26"
+    destination_address_prefix = "*"
+  }
+
+  # Allow RDP from Bastion Subnet (Windows Jumpbox)
+  security_rule {
+    name                       = "AllowRDPFromBastion"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
     source_address_prefix      = "10.0.255.0/26"
     destination_address_prefix = "*"
   }

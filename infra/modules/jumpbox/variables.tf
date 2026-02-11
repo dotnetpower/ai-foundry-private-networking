@@ -40,3 +40,9 @@ variable "enable_bastion" {
   type        = bool
   default     = true
 }
+
+variable "enable_windows_jumpbox" {
+  description = "Windows Jumpbox VM 활성화 여부"
+  type        = bool
+  default     = false
+}

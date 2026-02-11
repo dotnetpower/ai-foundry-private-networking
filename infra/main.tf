@@ -172,6 +172,7 @@ module "jumpbox" {
   admin_username      = var.admin_username
   admin_password      = var.admin_password
   enable_bastion      = var.enable_bastion
+  enable_windows_jumpbox = true
   tags                = local.common_tags
 
   depends_on = [module.networking]
