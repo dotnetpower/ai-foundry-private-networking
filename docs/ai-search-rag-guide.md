@@ -77,7 +77,7 @@ az network bastion rdp \
    - Chat 탭 선택
 
 4. **모델 선택**
-   - Deployment: `gpt-4o`
+   - Deployment: `gpt-5.4`
 
 5. **Add your data 설정**
    - "Add your data" 버튼 클릭

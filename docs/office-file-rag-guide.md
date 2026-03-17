@@ -64,7 +64,7 @@ flowchart LR
     end
     
     subgraph OpenAI["🧠 Azure OpenAI (Private)"]
-        GPT["GPT-4o"]
+        GPT["GPT-5.4"]
         Embedding["text-embedding-ada-002"]
     end
     
@@ -119,294 +119,38 @@ flowchart LR
 
 ## Private Networking 필수 설정
 
-### 1. Storage Account 설정
+> **참고**: 인프라 배포에 대한 상세 내용은 [infra-bicep/README.md](../infra-bicep/README.md)를 참조하세요.
 
-#### 1.1 Public Network Access 비활성화
+### 배포된 리소스 요약
 
-```hcl
-# Terraform 설정
-resource "azurerm_storage_account" "main" {
-  name                          = "staifoundry20260203"
-  resource_group_name           = azurerm_resource_group.main.name
-  location                      = azurerm_resource_group.main.location
-  account_tier                  = "Standard"
-  account_replication_type      = "LRS"
-  
-  # 필수: Public Network Access 비활성화
-  public_network_access_enabled = false
-  
-  # 필수: Default Network Action은 Deny
-  network_rules {
-    default_action = "Deny"
-    bypass         = ["AzureServices"]
-  }
-}
-```
+이 프로젝트의 Bicep 템플릿은 다음 리소스를 자동으로 배포합니다:
 
-#### 1.2 Private Endpoints 생성 (필수)
+| 리소스 | 설정 | 비고 |
+|--------|------|------|
+| **Storage Account** | `publicNetworkAccess: 'Disabled'` | Blob/File Private Endpoint 포함 |
+| **AI Search** | `publicNetworkAccess: 'disabled'` | Managed Identity 활성화 |
+| **Cosmos DB** | `publicNetworkAccess: 'Disabled'` | AAD 인증 |
+| **AI Foundry Account** | Private Endpoint | GPT-5.4, Embedding 모델 포함 |
+| **Private DNS Zones** | 7개 | VNet 링크 자동 구성 |
 
-```hcl
-# Blob Private Endpoint
-resource "azurerm_private_endpoint" "storage_blob" {
-  name                = "pe-storage-blob"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = azurerm_subnet.ai_foundry.id
+### RBAC 역할 할당 (자동)
 
-  private_service_connection {
-    name                           = "psc-storage-blob"
-    private_connection_resource_id = azurerm_storage_account.main.id
-    subresource_names              = ["blob"]  # 필수: blob
-    is_manual_connection           = false
-  }
+Bicep 배포 시 다음 역할이 자동으로 할당됩니다:
 
-  private_dns_zone_group {
-    name                 = "pdnszg-storage-blob"
-    private_dns_zone_ids = [azurerm_private_dns_zone.blob.id]
-  }
-}
+| 대상 | 역할 | 용도 |
+|------|------|------|
+| AI Foundry → Storage | Storage Blob Data Contributor | 파일 업로드/다운로드 |
+| AI Search → Storage | Storage Blob Data Reader | 인덱싱용 Blob 읽기 |
+| AI Foundry → AI Search | Search Index Data Contributor | 인덱스 검색 |
+| AI Foundry → Cosmos DB | Cosmos DB Data Contributor | Agent 상태 저장 |
 
-# File Private Endpoint (AI Foundry용)
-resource "azurerm_private_endpoint" "storage_file" {
-  name                = "pe-storage-file"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = azurerm_subnet.ai_foundry.id
+### 수동 설정 필요 항목
 
-  private_service_connection {
-    name                           = "psc-storage-file"
-    private_connection_resource_id = azurerm_storage_account.main.id
-    subresource_names              = ["file"]  # 필수: file
-    is_manual_connection           = false
-  }
+배포 후 Azure Portal에서 **Capability Host**를 설정해야 합니다:
 
-  private_dns_zone_group {
-    name                 = "pdnszg-storage-file"
-    private_dns_zone_ids = [azurerm_private_dns_zone.file.id]
-  }
-}
-```
-
-#### 1.3 Private DNS Zones (필수)
-
-```hcl
-# Blob DNS Zone
-resource "azurerm_private_dns_zone" "blob" {
-  name                = "privatelink.blob.core.windows.net"
-  resource_group_name = azurerm_resource_group.main.name
-}
-
-# East US VNet Link
-resource "azurerm_private_dns_zone_virtual_network_link" "blob_eastus" {
-  name                  = "link-blob-eastus"
-  resource_group_name   = azurerm_resource_group.main.name
-  private_dns_zone_name = azurerm_private_dns_zone.blob.name
-  virtual_network_id    = azurerm_virtual_network.main.id
-  registration_enabled  = false
-}
-
-# Korea Central VNet Link (필수!)
-resource "azurerm_private_dns_zone_virtual_network_link" "blob_krc" {
-  name                  = "link-blob-krc"
-  resource_group_name   = azurerm_resource_group.main.name
-  private_dns_zone_name = azurerm_private_dns_zone.blob.name
-  virtual_network_id    = azurerm_virtual_network.jumpbox_krc.id
-  registration_enabled  = false
-}
-```
-
-**⚠️ 중요**: Korea Central VNet에도 모든 Private DNS Zone을 연결해야 Jumpbox에서 DNS 해석이 가능합니다.
-
----
-
-### 2. AI Search 설정
-
-#### 2.1 Public Network Access 비활성화
-
-```hcl
-resource "azurerm_search_service" "main" {
-  name                = "srch-aifoundry-xxx"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  
-  # 필수: Standard SKU 이상 (Private Endpoint 지원)
-  sku  = "standard"
-  
-  # 필수: Public Network Access 비활성화
-  public_network_access_enabled = false
-}
-```
-
-**주의**: Basic SKU는 Private Endpoint를 지원하지 않습니다.
-
-#### 2.2 Managed Identity 활성화
-
-```hcl
-resource "azurerm_search_service" "main" {
-  # ...
-  
-  identity {
-    type = "SystemAssigned"  # 필수
-  }
-}
-```
-
-#### 2.3 RBAC 권한 할당 (필수)
-
-```hcl
-# AI Search → Storage Blob Data Reader
-resource "azurerm_role_assignment" "search_storage" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Reader"
-  principal_id         = azurerm_search_service.main.identity[0].principal_id
-}
-```
-
----
-
-### 3. Azure OpenAI 설정
-
-#### 3.1 Public Network Access 비활성화
-
-```hcl
-resource "azurerm_cognitive_account" "openai" {
-  name                = "aoai-aifoundry"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  kind                = "OpenAI"
-  sku_name            = "S0"
-  
-  # 필수: Custom Subdomain (Private Endpoint용)
-  custom_subdomain_name = "aoai-aifoundry-xxx"
-  
-  # 필수: Public Network Access 비활성화
-  public_network_access_enabled = false
-  
-  network_acls {
-    default_action = "Deny"
-  }
-}
-```
-
-#### 3.2 Embedding 모델 배포 (필수)
-
-```hcl
-resource "azurerm_cognitive_deployment" "embedding" {
-  name                 = "text-embedding-ada-002"
-  cognitive_account_id = azurerm_cognitive_account.openai.id
-  
-  model {
-    format  = "OpenAI"
-    name    = "text-embedding-ada-002"
-    version = "2"
-  }
-  
-  scale {
-    type = "Standard"
-  }
-}
-```
-
-**필수**: AI Search의 벡터 검색을 위해 embedding 모델이 필요합니다.
-
----
-
-### 4. AI Foundry Hub 설정
-
-#### 4.1 Hub Connections (필수)
-
-```hcl
-# Azure OpenAI Connection (AAD 인증)
-resource "azapi_resource" "openai_connection" {
-  type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-04-01"
-  name      = "aoai-connection"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = jsonencode({
-    properties = {
-      category = "AzureOpenAI"
-      target   = azurerm_cognitive_account.openai.endpoint
-      authType = "AAD"  # 필수: Managed Identity 인증
-      isSharedToAll = true
-      metadata = {
-        ApiType    = "azure"
-        ApiVersion = "2024-10-21"
-      }
-    }
-  })
-}
-
-# AI Search Connection (AAD 인증)
-resource "azapi_resource" "search_connection" {
-  type      = "Microsoft.MachineLearningServices/workspaces/connections@2024-04-01"
-  name      = "aisearch-connection"
-  parent_id = azapi_resource.ai_hub.id
-
-  body = jsonencode({
-    properties = {
-      category = "CognitiveSearch"
-      target   = "https://${azurerm_search_service.main.name}.search.windows.net"
-      authType = "AAD"  # 필수: Managed Identity 인증
-      isSharedToAll = true
-    }
-  })
-}
-```
-
-#### 4.2 Hub Managed Identity RBAC (필수)
-
-```hcl
-# Hub MI → Storage Blob Data Contributor
-resource "azurerm_role_assignment" "hub_storage" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azapi_resource.ai_hub.identity[0].principal_id
-}
-
-# Hub MI → Cognitive Services User
-resource "azurerm_role_assignment" "hub_openai" {
-  scope                = azurerm_cognitive_account.openai.id
-  role_definition_name = "Cognitive Services User"
-  principal_id         = azapi_resource.ai_hub.identity[0].principal_id
-}
-
-# Hub MI → Search Index Data Reader
-resource "azurerm_role_assignment" "hub_search" {
-  scope                = azurerm_search_service.main.id
-  role_definition_name = "Search Index Data Reader"
-  principal_id         = azapi_resource.ai_hub.identity[0].principal_id
-}
-```
-
----
-
-### 5. VNet Peering 설정 (필수)
-
-```hcl
-# East US VNet → Korea Central VNet
-resource "azurerm_virtual_network_peering" "main_to_jumpbox" {
-  name                      = "peer-main-to-jumpbox"
-  resource_group_name       = azurerm_resource_group.main.name
-  virtual_network_name      = azurerm_virtual_network.main.name
-  remote_virtual_network_id = azurerm_virtual_network.jumpbox_krc.id
-  
-  allow_forwarded_traffic   = true
-  allow_gateway_transit     = false
-}
-
-# Korea Central VNet → East US VNet
-resource "azurerm_virtual_network_peering" "jumpbox_to_main" {
-  name                      = "peer-jumpbox-to-main"
-  resource_group_name       = azurerm_resource_group.main.name
-  virtual_network_name      = azurerm_virtual_network.jumpbox_krc.name
-  remote_virtual_network_id = azurerm_virtual_network.main.id
-  
-  allow_forwarded_traffic   = true
-  use_remote_gateways       = false
-}
-```
-
-**필수**: 양방향 peering이 모두 설정되어야 합니다.
+1. **Azure Portal** > **AI Foundry** > Project 선택
+2. **Management** > **Agent setup** 클릭
+3. **Standard agent setup** 선택 후 구성
 
 ---
 
@@ -705,7 +449,7 @@ AI Foundry Portal에서:
 
 ### Step 2: Deployment 선택
 
-1. **Deployment** 드롭다운 → `gpt-4o` 선택
+1. **Deployment** 드롭다운 → `gpt-5.4` 선택
 
 ### Step 3: Add your data 설정
 
@@ -728,7 +472,7 @@ AI Foundry Portal에서:
 예상 답변: 프라이빗 네트워킹 지원, AI 모델 통합, RAG 패턴 지원 등
 
 질문 2: "RAG 패턴의 구성 요소는?"
-예상 답변: Blob Storage, AI Search, Embedding 모델, GPT-4o
+예상 답변: Blob Storage, AI Search, Embedding 모델, GPT-5.4
 
 질문 3: "프라이빗 네트워킹 보안 설정은?"
 예상 답변: Private Endpoints, VNet Peering, NSG, Managed Identity 등
@@ -758,7 +502,7 @@ Azure AI Foundry는 다음과 같은 주요 기능을 제공합니다:
    - Azure Bastion을 통한 보안 접속
 
 2. **AI 모델 통합**
-   - Azure OpenAI GPT-4o
+   - Azure OpenAI GPT-5.4
    - Text Embedding Ada-002
    - 커스텀 모델 배포
 
@@ -813,7 +557,7 @@ curl -X POST "${SEARCH_ENDPOINT}/indexes/${INDEX_NAME}/docs/search?api-version=2
 
 # 환경 변수
 OPENAI_ENDPOINT="https://aoai-aifoundry.openai.azure.com"
-DEPLOYMENT_NAME="gpt-4o"
+DEPLOYMENT_NAME="gpt-5.4"
 API_VERSION="2024-10-21"
 
 # Azure AD 토큰
@@ -835,7 +579,7 @@ SEARCH_RESULTS=$(curl -s -X POST \
 # 2. 검색 결과를 컨텍스트로 변환
 CONTEXT=$(echo "$SEARCH_RESULTS" | jq -r '.value[] | "[" + .title + "]\n" + .content' | jq -Rs .)
 
-# 3. GPT-4o 호출
+# 3. GPT-5.4 호출
 curl -X POST "${OPENAI_ENDPOINT}/openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
@@ -873,7 +617,7 @@ from openai import AzureOpenAI
 SEARCH_ENDPOINT = "https://srch-aifoundry-xxx.search.windows.net"
 SEARCH_INDEX = "aifoundry-docs-index"
 OPENAI_ENDPOINT = "https://aoai-aifoundry.openai.azure.com"
-OPENAI_DEPLOYMENT = "gpt-4o"
+OPENAI_DEPLOYMENT = "gpt-5.4"
 
 def search_documents(query: str, top_k: int = 3):
     """AI Search에서 문서 검색"""
@@ -900,7 +644,7 @@ def search_documents(query: str, top_k: int = 3):
     return documents
 
 def generate_response(query: str, documents: list):
-    """검색된 문서를 기반으로 GPT-4o 응답 생성"""
+    """검색된 문서를 기반으로 GPT-5.4 응답 생성"""
     credential = DefaultAzureCredential()
     
     # Azure AD 토큰 프로바이더
@@ -927,7 +671,7 @@ def generate_response(query: str, documents: list):
 
 문서에 정보가 없으면 "제공된 문서에서 해당 정보를 찾을 수 없습니다"라고 답변하세요."""
     
-    # GPT-4o 호출
+    # GPT-5.4 호출
     response = client.chat.completions.create(
         model=OPENAI_DEPLOYMENT,
         messages=[
@@ -957,8 +701,8 @@ def main():
     for i, doc in enumerate(documents, 1):
         print(f"  {i}. {doc['title']}")
     
-    # 2. GPT-4o 응답 생성
-    print("\n[2/2] GPT-4o로 응답 생성 중...")
+    # 2. GPT-5.4 응답 생성
+    print("\n[2/2] GPT-5.4로 응답 생성 중...")
     answer = generate_response(query, documents)
     
     # 결과 출력

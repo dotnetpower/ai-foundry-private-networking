@@ -36,9 +36,9 @@
 5. **자격 증명 입력**
    - **사용자 이름**: `azureuser` (기본값)
    - **인증 방법**: "VM 암호" 선택
-   - **암호**: Terraform 배포 시 설정한 패스워드 입력
+   - **암호**: Bicep 배포 시 설정한 패스워드 입력
    
-   > ⚠️ **보안 참고**: 패스워드는 환경 변수(`TF_VAR_jumpbox_admin_password`)로 설정되어야 합니다.
+   > ⚠️ **보안 참고**: 패스워드는 환경 변수 또는 대화형 입력으로 설정해야 합니다.
 
 6. **연결 버튼 클릭**
    - "연결" 버튼 클릭
@@ -59,7 +59,7 @@
 3. **자격 증명 입력**
    - **사용자 이름**: `azureuser`
    - **인증 방법**: "VM 암호" 선택
-   - **암호**: Terraform 배포 시 설정한 패스워드 입력
+   - **암호**: Bicep 배포 시 설정한 패스워드 입력
 
 4. **연결**
    - 브라우저 기반 SSH 터미널 세션 시작
@@ -90,7 +90,7 @@ az network bastion rdp \
 
 **입력 프롬프트:**
 - Username: `azureuser`
-- Password: `<Terraform 배포 시 설정한 패스워드>`
+- Password: `<Bicep 배포 시 설정한 패스워드>`
 
 #### Linux SSH (로컬 SSH 클라이언트 사용)
 
@@ -182,7 +182,7 @@ AllowSSHFromBastion    110         Allow     10.1.255.0/26
    - 또는 좌측 메뉴 → "All projects" → `aiproj-agents`
 
 6. **AI 기능 사용**
-   - **Playground**: GPT-4o 모델 테스트
+   - **Playground**: GPT-5.4 모델 테스트
    - **Deployments**: 배포된 모델 확인
    - **Agent Builder**: AI 에이전트 생성
    - **Prompt Flow**: 워크플로우 작성
@@ -214,7 +214,7 @@ az cognitiveservices account deployment list \
 ```
 Name                      SkuName        SkuCapacity    ProvisioningState
 ------------------------  -------------  -------------  -------------------
-gpt-4o                    GlobalStandard  1              Succeeded
+gpt-5.4                   GlobalStandard  1              Succeeded
 text-embedding-ada-002    Standard        1              Succeeded
 ```
 
@@ -557,7 +557,7 @@ Test-NetConnection -ComputerName aihub-foundry.eastus.api.azureml.ms -Port 443
 nslookup aihub-foundry.eastus.api.azureml.ms
 ```
 
-### 문제 3: Playground에서 GPT-4o 모델 호출 실패
+### 문제 3: Playground에서 GPT-5.4 모델 호출 실패
 
 **증상**:
 - Playground에서 "Model deployment not found" 오류
@@ -593,7 +593,7 @@ az cognitiveservices account deployment list \
 # 예상 출력:
 # name                      model                     version      provisioningState
 # ------------------------  ------------------------  -----------  -------------------
-# gpt-4o                    gpt-4o                    2024-11-20   Succeeded ✅
+# gpt-5.4                   gpt-5.4                   2025-03-01   Succeeded ✅
 # text-embedding-ada-002    text-embedding-ada-002    2            Succeeded ✅
 
 # 4. Hub의 OpenAI Connection 확인
@@ -832,7 +832,7 @@ az vm boot-diagnostics get-boot-log \
 
 | 리소스 유형 | 이름 | Private Endpoint | 배포된 모델 |
 |-------------|------|------------------|-------------|
-| Azure OpenAI | `aoai-aifoundry` | `pe-openai` (10.0.1.X) | gpt-4o, text-embedding-ada-002 |
+| Azure OpenAI | `aoai-aifoundry` | `pe-openai` (10.0.1.X) | gpt-5.4, text-embedding-ada-002 |
 | AI Search | `srch-aifoundry-7kkykgt6` | `pe-search` (10.0.1.X) | Standard SKU |
 
 ### 스토리지 리소스 (East US)
@@ -1006,11 +1006,11 @@ nslookup staifoundry20260128.blob.core.windows.net
   - Low (D): 정보 요청
 
 ### 유용한 링크
-- [Azure AI Foundry 문서](https://docs.microsoft.com/azure/machine-learning/)
+- [Azure AI Foundry 문서](https://learn.microsoft.com/azure/ai-services/)
 - [Azure Private Link 문서](https://docs.microsoft.com/azure/private-link/)
 - [Azure Bastion 문서](https://docs.microsoft.com/azure/bastion/)
 - [Azure Network Troubleshooting](https://docs.microsoft.com/azure/network-watcher/)
-- [Terraform Azure Provider 문서](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
+- [Azure Bicep 문서](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)
 
 ### GitHub Issues
 - **리포지토리**: https://github.com/dotnetpower/ai-foundry-private-networking

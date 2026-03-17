@@ -75,7 +75,7 @@ uv run visualize_infrastructure.py
 
 #### Cognitive Services
 - Azure OpenAI: `aoai-aifoundry`
-  - GPT-4o (2024-11-20)
+  - GPT-5.4 (2025-03-01)
   - text-embedding-ada-002
 - AI Search: `srch-aifoundry-7kkykgt6`
 - Private Endpoints: `pe-openai`, `pe-search`
@@ -112,7 +112,7 @@ uv run visualize_infrastructure.py
    - Linux: `vm-jumpbox-linux-krc`
 3. 자격 증명:
    - 사용자: `azureuser`
-   - 비밀번호: (terraform.tfvars에 설정된 값)
+   - 비밀번호: (Bicep 배포 시 설정한 값)
 
 ### AI Foundry Hub 접근
 
@@ -148,8 +148,8 @@ src/
 ## 참고사항
 
 - 다이어그램은 현재 배포 상태를 반영합니다
-- Terraform 상태 변경 시 스크립트 재실행 필요
-- Korea Central의 Jumpbox를 통해 East US 프라이빗 네트워크 접근
+- 인프라 변경 시 스크립트 재실행 필요
+- Jumpbox를 통해 프라이빗 네트워크 접근
 - 모든 AI 서비스는 Private Endpoint로 보호됨
 
 ## 업데이트 방법
@@ -163,7 +163,7 @@ uv run visualize_infrastructure.py
 
 ## 관련 문서
 
-- [Terraform 인프라 코드](../infra/)
+- [Bicep 인프라 코드](../infra-bicep/)
 - [비용 산정서](../docs/cost-estimation.md)
 - [Azure AI Foundry 문서](https://learn.microsoft.com/azure/ai-studio/)
 - [Diagrams 라이브러리](https://diagrams.mingrammer.com/)
