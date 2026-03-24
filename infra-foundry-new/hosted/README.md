@@ -50,7 +50,7 @@
 ### 1. 인프라 배포 (Bicep)
 
 ```bash
-cd infra-bicep/hosted
+cd infra-foundry-new/hosted
 
 az deployment sub create \
   --location swedencentral \

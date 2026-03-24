@@ -1,5 +1,5 @@
 // =============================================================================
-// Jumpbox Module - Linux/Windows VMs, Azure Bastion, NAT Gateway
+// Jumpbox Module - Windows VM, Azure Bastion, NAT Gateway
 // =============================================================================
 
 @description('Location for all resources')
@@ -24,13 +24,7 @@ param adminUsername string = 'azureuser'
 @secure()
 param adminPassword string
 
-@description('Deploy Linux Jumpbox')
-param deployLinuxJumpbox bool = false
-
-@description('Deploy Windows Jumpbox')
-param deployWindowsJumpbox bool = true
-
-@description('VM size for Jumpbox VMs')
+@description('VM size for Jumpbox VM')
 param vmSize string = 'Standard_D4s_v3'
 
 // =============================================================================
@@ -111,111 +105,10 @@ resource bastion 'Microsoft.Network/bastionHosts@2023-11-01' = {
 }
 
 // =============================================================================
-// Linux Jumpbox VM
-// =============================================================================
-
-resource linuxNic 'Microsoft.Network/networkInterfaces@2023-11-01' = if (deployLinuxJumpbox) {
-  name: 'nic-${namePrefix}-jumpbox-linux'
-  location: location
-  tags: tags
-  properties: {
-    ipConfigurations: [
-      {
-        name: 'ipconfig'
-        properties: {
-          subnet: {
-            id: jumpboxSubnetId
-          }
-          privateIPAllocationMethod: 'Dynamic'
-        }
-      }
-    ]
-  }
-}
-
-resource linuxVm 'Microsoft.Compute/virtualMachines@2024-03-01' = if (deployLinuxJumpbox) {
-  name: 'vm-${namePrefix}-jumpbox-linux'
-  location: location
-  tags: tags
-  properties: {
-    hardwareProfile: {
-      vmSize: vmSize
-    }
-    osProfile: {
-      computerName: 'jumpbox-linux'
-      adminUsername: adminUsername
-      adminPassword: adminPassword
-      linuxConfiguration: {
-        disablePasswordAuthentication: false
-      }
-    }
-    storageProfile: {
-      imageReference: {
-        publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts-gen2'
-        version: 'latest'
-      }
-      osDisk: {
-        createOption: 'FromImage'
-        managedDisk: {
-          storageAccountType: 'Premium_LRS'
-        }
-      }
-    }
-    networkProfile: {
-      networkInterfaces: [
-        {
-          id: linuxNic.id
-        }
-      ]
-    }
-  }
-}
-
-// Linux VM Custom Script Extension for Dev Environment Setup
-resource linuxVmExtension 'Microsoft.Compute/virtualMachines/extensions@2024-03-01' = if (deployLinuxJumpbox) {
-  parent: linuxVm
-  name: 'setup-dev-environment'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Azure.Extensions'
-    type: 'CustomScript'
-    typeHandlerVersion: '2.1'
-    autoUpgradeMinorVersion: true
-    settings: {
-      script: base64('''
-#!/bin/bash
-set -e
-
-# Update and install packages
-apt-get update
-apt-get install -y python3.11 python3.11-venv python3-pip git jq vim tmux curl
-
-# Create Python venv
-python3.11 -m venv /opt/ai-dev-env
-source /opt/ai-dev-env/bin/activate
-pip install --upgrade pip
-pip install openai azure-identity azure-search-documents azure-storage-blob
-
-# Install Azure CLI
-curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-
-# Set permissions
-chmod -R 755 /opt/ai-dev-env
-chown -R azureuser:azureuser /opt/ai-dev-env
-
-echo "Development environment setup complete!"
-''')
-    }
-  }
-}
-
-// =============================================================================
 // Windows Jumpbox VM
 // =============================================================================
 
-resource windowsNic 'Microsoft.Network/networkInterfaces@2023-11-01' = if (deployWindowsJumpbox) {
+resource windowsNic 'Microsoft.Network/networkInterfaces@2023-11-01' = {
   name: 'nic-${namePrefix}-jumpbox-win'
   location: location
   tags: tags
@@ -234,7 +127,7 @@ resource windowsNic 'Microsoft.Network/networkInterfaces@2023-11-01' = if (deplo
   }
 }
 
-resource windowsVm 'Microsoft.Compute/virtualMachines@2024-03-01' = if (deployWindowsJumpbox) {
+resource windowsVm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
   name: 'vm-${namePrefix}-jumpbox-win'
   location: location
   tags: tags
@@ -280,10 +173,6 @@ output bastionName string = bastion.name
 
 output natGatewayId string = natGateway.id
 
-output linuxVmId string = deployLinuxJumpbox ? linuxVm.id : ''
-output linuxVmName string = deployLinuxJumpbox ? linuxVm.name : ''
-output linuxVmPrivateIp string = deployLinuxJumpbox ? linuxNic.properties.ipConfigurations[0].properties.privateIPAddress : ''
-
-output windowsVmId string = deployWindowsJumpbox ? windowsVm.id : ''
-output windowsVmName string = deployWindowsJumpbox ? windowsVm.name : ''
-output windowsVmPrivateIp string = deployWindowsJumpbox ? windowsNic.properties.ipConfigurations[0].properties.privateIPAddress : ''
+output windowsVmId string = windowsVm.id
+output windowsVmName string = windowsVm.name
+output windowsVmPrivateIp string = windowsNic.properties.ipConfigurations[0].properties.privateIPAddress

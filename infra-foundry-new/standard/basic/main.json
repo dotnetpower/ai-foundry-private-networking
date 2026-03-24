@@ -1,0 +1,1939 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "6467950701911236969"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "swedencentral",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "rg-aifoundry-bicep",
+      "metadata": {
+        "description": "Resource group name"
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "staging",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment name (dev, staging, prod)"
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "192.168.0.0/16",
+      "metadata": {
+        "description": "VNet address prefix"
+      }
+    },
+    "agentSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "192.168.0.0/24",
+      "metadata": {
+        "description": "Agent subnet address prefix (Microsoft.App/environments delegation)"
+      }
+    },
+    "privateEndpointSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "192.168.1.0/24",
+      "metadata": {
+        "description": "Private endpoint subnet address prefix"
+      }
+    },
+    "jumpboxSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "192.168.2.0/24",
+      "metadata": {
+        "description": "Jumpbox subnet address prefix"
+      }
+    },
+    "hubVnetId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Hub VNet resource ID for Hub-Spoke peering (empty = standalone VNet)"
+      }
+    },
+    "hubVnetResourceGroup": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Hub VNet resource group name"
+      }
+    },
+    "hubVnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Hub VNet name"
+      }
+    },
+    "deployJumpbox": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Deploy Windows Jumpbox VM"
+      }
+    },
+    "jumpboxAdminUsername": {
+      "type": "string",
+      "defaultValue": "azureuser",
+      "metadata": {
+        "description": "Jumpbox admin username"
+      }
+    },
+    "jumpboxAdminPassword": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Jumpbox admin password"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "Environment": "[parameters('environmentName')]",
+        "Project": "AI-Foundry-Private-Networking",
+        "ManagedBy": "Bicep",
+        "CreatedDate": "2026-03-17"
+      },
+      "metadata": {
+        "description": "Tags to apply to all resources"
+      }
+    }
+  },
+  "variables": {
+    "namePrefix": "[format('aifoundry-{0}', parameters('environmentName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "networking-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "vnetAddressPrefix": {
+            "value": "[parameters('vnetAddressPrefix')]"
+          },
+          "agentSubnetAddressPrefix": {
+            "value": "[parameters('agentSubnetAddressPrefix')]"
+          },
+          "privateEndpointSubnetAddressPrefix": {
+            "value": "[parameters('privateEndpointSubnetAddressPrefix')]"
+          },
+          "jumpboxSubnetAddressPrefix": {
+            "value": "[parameters('jumpboxSubnetAddressPrefix')]"
+          },
+          "deployJumpboxSubnet": {
+            "value": "[parameters('deployJumpbox')]"
+          },
+          "hubVnetId": {
+            "value": "[parameters('hubVnetId')]"
+          },
+          "hubVnetResourceGroup": {
+            "value": "[parameters('hubVnetResourceGroup')]"
+          },
+          "hubVnetName": {
+            "value": "[parameters('hubVnetName')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "5463423271371895387"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "192.168.0.0/16",
+              "metadata": {
+                "description": "VNet address prefix"
+              }
+            },
+            "agentSubnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "192.168.0.0/24",
+              "metadata": {
+                "description": "Agent subnet address prefix (requires Microsoft.App/environments delegation)"
+              }
+            },
+            "privateEndpointSubnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "192.168.1.0/24",
+              "metadata": {
+                "description": "Private endpoint subnet address prefix"
+              }
+            },
+            "jumpboxSubnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "192.168.2.0/24",
+              "metadata": {
+                "description": "Jumpbox subnet address prefix"
+              }
+            },
+            "deployJumpboxSubnet": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Deploy jumpbox subnet"
+              }
+            },
+            "hubVnetId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Hub VNet resource ID for Hub-Spoke peering (empty = standalone VNet)"
+              }
+            },
+            "hubVnetResourceGroup": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Hub VNet resource group name"
+              }
+            },
+            "hubVnetName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Hub VNet name"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources"
+              }
+            }
+          },
+          "variables": {
+            "privateDnsZones": [
+              "privatelink.cognitiveservices.azure.com",
+              "privatelink.openai.azure.com",
+              "privatelink.services.ai.azure.com",
+              "privatelink.search.windows.net",
+              "privatelink.documents.azure.com",
+              "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+              "[format('privatelink.file.{0}', environment().suffixes.storage)]"
+            ]
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nsg-{0}-agent', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowHTTPSInbound",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "VirtualNetwork",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nsg-{0}-pe', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowHTTPSInbound",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "VirtualNetwork",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "condition": "[parameters('deployJumpboxSubnet')]",
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nsg-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowRDP",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "3389",
+                      "sourceAddressPrefix": "VirtualNetwork",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4095,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowVNetOutbound",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Outbound",
+                      "access": "Allow",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "VirtualNetwork"
+                    }
+                  },
+                  {
+                    "name": "AllowInternetOutbound",
+                    "properties": {
+                      "priority": 200,
+                      "direction": "Outbound",
+                      "access": "Allow",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "Internet"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-11-01",
+              "name": "[format('vnet-{0}', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": "[concat(createArray(createObject('name', 'snet-agent', 'properties', createObject('addressPrefix', parameters('agentSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-agent', parameters('namePrefix')))), 'delegations', createArray(createObject('name', 'delegation-app-environments', 'properties', createObject('serviceName', 'Microsoft.App/environments'))), 'privateEndpointNetworkPolicies', 'Disabled')), createObject('name', 'snet-privateendpoints', 'properties', createObject('addressPrefix', parameters('privateEndpointSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))), 'privateEndpointNetworkPolicies', 'Disabled'))), if(parameters('deployJumpboxSubnet'), createArray(createObject('name', 'snet-jumpbox', 'properties', createObject('addressPrefix', parameters('jumpboxSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))), 'defaultOutboundAccess', false()))), createArray()))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-agent', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "dnsZones",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('privateDnsZones')[copyIndex()]]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "copy": {
+                "name": "dnsZoneLinks",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], format('link-{0}', parameters('namePrefix')))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[copyIndex()])]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "dnsZoneLinksHub",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "condition": "[not(empty(parameters('hubVnetId')))]",
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], 'link-hub')]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('hubVnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[copyIndex()])]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('hubVnetId')))]",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('vnet-{0}', parameters('namePrefix')), 'peer-spoke-to-hub')]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('hubVnetId')]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "useRemoteGateways": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('hubVnetId')))]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "hub-to-spoke-peering",
+              "resourceGroup": "[parameters('hubVnetResourceGroup')]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "hubVnetName": {
+                    "value": "[parameters('hubVnetName')]"
+                  },
+                  "remoteVnetId": {
+                    "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                  },
+                  "peeringName": {
+                    "value": "[format('peer-hub-to-{0}', parameters('namePrefix'))]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "8886008406390736012"
+                    }
+                  },
+                  "parameters": {
+                    "hubVnetName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Hub VNet name"
+                      }
+                    },
+                    "remoteVnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Remote (Spoke) VNet resource ID"
+                      }
+                    },
+                    "peeringName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Peering name"
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+                      "apiVersion": "2023-11-01",
+                      "name": "[format('{0}/{1}', parameters('hubVnetName'), parameters('peeringName'))]",
+                      "properties": {
+                        "remoteVirtualNetwork": {
+                          "id": "[parameters('remoteVnetId')]"
+                        },
+                        "allowVirtualNetworkAccess": true,
+                        "allowForwardedTraffic": true,
+                        "allowGatewayTransit": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "value": "[format('vnet-{0}', parameters('namePrefix'))]"
+            },
+            "agentSubnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[0].id]"
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[1].id]"
+            },
+            "jumpboxSubnetId": {
+              "type": "string",
+              "value": "[if(parameters('deployJumpboxSubnet'), reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[2].id, '')]"
+            },
+            "privateDnsZoneIds": {
+              "type": "object",
+              "value": {
+                "cognitiveservices": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[0])]",
+                "openai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[1])]",
+                "servicesai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[2])]",
+                "search": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[3])]",
+                "cosmosdb": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[4])]",
+                "blob": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[5])]",
+                "file": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[6])]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "dependent-resources-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1673163573647447963"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "uniqueSuffix": {
+              "type": "string",
+              "defaultValue": "[uniqueString(resourceGroup().id)]",
+              "metadata": {
+                "description": "Unique suffix for globally unique names"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources"
+              }
+            }
+          },
+          "variables": {
+            "shortSuffix": "[take(parameters('uniqueSuffix'), 8)]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[format('st{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_ZRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "accessTier": "Hot",
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": false,
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true,
+                "publicNetworkAccess": "Disabled",
+                "networkAcls": {
+                  "defaultAction": "Deny",
+                  "bypass": "AzureServices"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', format('st{0}', variables('shortSuffix')), 'default')]",
+              "properties": {
+                "containerDeleteRetentionPolicy": {
+                  "enabled": true,
+                  "days": 7
+                },
+                "deleteRetentionPolicy": {
+                  "enabled": true,
+                  "days": 7
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', format('st{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'agents-data')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('st{0}', variables('shortSuffix')), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'rag-documents')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('st{0}', variables('shortSuffix')), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'rag-chunks')]",
+              "properties": {
+                "publicAccess": "None"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('st{0}', variables('shortSuffix')), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts",
+              "apiVersion": "2024-11-15",
+              "name": "[format('cosmos-{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "GlobalDocumentDB",
+              "properties": {
+                "databaseAccountOfferType": "Standard",
+                "locations": [
+                  {
+                    "locationName": "[parameters('location')]",
+                    "failoverPriority": 0,
+                    "isZoneRedundant": false
+                  }
+                ],
+                "consistencyPolicy": {
+                  "defaultConsistencyLevel": "Session"
+                },
+                "enableAutomaticFailover": false,
+                "enableMultipleWriteLocations": false,
+                "publicNetworkAccess": "Disabled",
+                "networkAclBypass": "AzureServices",
+                "disableLocalAuth": true,
+                "capabilities": [
+                  {
+                    "name": "EnableServerless"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+              "apiVersion": "2024-02-15-preview",
+              "name": "[format('{0}/{1}', format('cosmos-{0}', variables('shortSuffix')), 'agentdb')]",
+              "properties": {
+                "resource": {
+                  "id": "agentdb"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('cosmos-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2024-02-15-preview",
+              "name": "[format('{0}/{1}/{2}', format('cosmos-{0}', variables('shortSuffix')), 'agentdb', 'threads')]",
+              "properties": {
+                "resource": {
+                  "id": "threads",
+                  "partitionKey": {
+                    "paths": [
+                      "/threadId"
+                    ],
+                    "kind": "Hash"
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', format('cosmos-{0}', variables('shortSuffix')), 'agentdb')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Search/searchServices",
+              "apiVersion": "2024-03-01-preview",
+              "name": "[format('srch-{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "standard"
+              },
+              "properties": {
+                "replicaCount": 1,
+                "partitionCount": 1,
+                "hostingMode": "default",
+                "publicNetworkAccess": "disabled",
+                "networkRuleSet": {
+                  "bypass": "AzureServices"
+                },
+                "authOptions": {
+                  "aadOrApiKey": {
+                    "aadAuthFailureMode": "http401WithBearerChallenge"
+                  }
+                },
+                "semanticSearch": "standard"
+              }
+            }
+          ],
+          "outputs": {
+            "storageAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', format('st{0}', variables('shortSuffix')))]"
+            },
+            "storageAccountName": {
+              "type": "string",
+              "value": "[format('st{0}', variables('shortSuffix'))]"
+            },
+            "cosmosAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.DocumentDB/databaseAccounts', format('cosmos-{0}', variables('shortSuffix')))]"
+            },
+            "cosmosAccountName": {
+              "type": "string",
+              "value": "[format('cosmos-{0}', variables('shortSuffix'))]"
+            },
+            "cosmosDatabaseName": {
+              "type": "string",
+              "value": "agentdb"
+            },
+            "searchServiceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Search/searchServices', format('srch-{0}', variables('shortSuffix')))]"
+            },
+            "searchServiceName": {
+              "type": "string",
+              "value": "[format('srch-{0}', variables('shortSuffix'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "private-endpoints-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.privateEndpointSubnetId.value]"
+          },
+          "foundryAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountId.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountId.value]"
+          },
+          "cosmosAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.cosmosAccountId.value]"
+          },
+          "searchServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceId.value]"
+          },
+          "privateDnsZoneIds": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.privateDnsZoneIds.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "4560595432279228779"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources"
+              }
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private Endpoint Subnet ID"
+              }
+            },
+            "foundryAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry Account resource ID"
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage Account resource ID"
+              }
+            },
+            "cosmosAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB Account resource ID"
+              }
+            },
+            "searchServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search Service resource ID"
+              }
+            },
+            "privateDnsZoneIds": {
+              "type": "object",
+              "metadata": {
+                "description": "Private DNS Zone IDs"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-foundry', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "plsc-foundry",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('foundryAccountId')]",
+                      "groupIds": [
+                        "account"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-foundry', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "cognitiveservices",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').cognitiveservices]"
+                    }
+                  },
+                  {
+                    "name": "openai",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').openai]"
+                    }
+                  },
+                  {
+                    "name": "servicesai",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').servicesai]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-foundry', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-storage-blob', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "plsc-storage-blob",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('storageAccountId')]",
+                      "groupIds": [
+                        "blob"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-storage-blob', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "blob",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').blob]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-blob', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-storage-file', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "plsc-storage-file",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('storageAccountId')]",
+                      "groupIds": [
+                        "file"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-storage-file', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "file",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').file]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-cosmos', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "plsc-cosmos",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('cosmosAccountId')]",
+                      "groupIds": [
+                        "Sql"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-cosmos', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "cosmosdb",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').cosmosdb]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-cosmos', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-search', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "plsc-search",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('searchServiceId')]",
+                      "groupIds": [
+                        "searchService"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-search', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "search",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').search]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "privateEndpointIds": {
+              "type": "object",
+              "value": {
+                "foundry": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-foundry', parameters('namePrefix')))]",
+                "storageBlob": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-blob', parameters('namePrefix')))]",
+                "storageFile": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix')))]",
+                "cosmos": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-cosmos', parameters('namePrefix')))]",
+                "search": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix')))]"
+              }
+            },
+            "privateEndpointIps": {
+              "type": "object",
+              "value": {
+                "foundry": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-foundry', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
+                "storageBlob": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-blob', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
+                "storageFile": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
+                "cosmos": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-cosmos', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
+                "search": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "ai-foundry-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "agentSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.agentSubnetId.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountId.value]"
+          },
+          "storageAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountName.value]"
+          },
+          "cosmosAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.cosmosAccountId.value]"
+          },
+          "cosmosAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.cosmosAccountName.value]"
+          },
+          "searchServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceId.value]"
+          },
+          "searchServiceName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceName.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "14306157415650006453"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "uniqueSuffix": {
+              "type": "string",
+              "defaultValue": "[uniqueString(resourceGroup().id)]",
+              "metadata": {
+                "description": "Unique suffix for globally unique names"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources"
+              }
+            },
+            "agentSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Agent subnet ID for capability host"
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage Account resource ID"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage Account name"
+              }
+            },
+            "cosmosAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB Account resource ID"
+              }
+            },
+            "cosmosAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB Account name"
+              }
+            },
+            "searchServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search Service resource ID"
+              }
+            },
+            "searchServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search Service name"
+              }
+            }
+          },
+          "variables": {
+            "shortSuffix": "[take(parameters('uniqueSuffix'), 8)]",
+            "storageBlobDataOwnerRoleId": "b7e6dc6d-f1e8-4753-8033-0f276bb0955b",
+            "cosmosDbOperatorRoleId": "230815da-be43-4aae-9cb4-875f7bd000aa",
+            "searchIndexDataContributorRoleId": "8ebe5a00-799e-43f5-93ac-243d3dce84a7",
+            "searchServiceContributorRoleId": "7ca78c08-252a-4471-8644-bb5ff32d4ba0"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('cog-{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "AIServices",
+              "sku": {
+                "name": "S0"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "customSubDomainName": "[format('cog-{0}', variables('shortSuffix'))]",
+                "publicNetworkAccess": "Disabled",
+                "networkAcls": {
+                  "defaultAction": "Deny",
+                  "bypass": "AzureServices"
+                },
+                "disableLocalAuth": false,
+                "allowProjectManagement": true
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), 'gpt-4o')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 10
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4o",
+                  "version": "2024-11-20"
+                },
+                "raiPolicyName": "Microsoft.DefaultV2"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), 'gpt-5.2')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 10
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-5.2",
+                  "version": "2025-03-01"
+                },
+                "raiPolicyName": "Microsoft.DefaultV2"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'gpt-4o')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), 'text-embedding-3-large')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 10
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "text-embedding-3-large",
+                  "version": "1"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'gpt-5.2')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "Project",
+              "sku": {
+                "name": "S0"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'text-embedding-3-large')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')), 'storage-connection')]",
+              "properties": {
+                "category": "AzureStorageAccount",
+                "target": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "azure",
+                  "AccountName": "[parameters('storageAccountName')]",
+                  "ContainerName": "agents-data",
+                  "ResourceId": "[parameters('storageAccountId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')), 'cosmos-connection')]",
+              "properties": {
+                "category": "CosmosDB",
+                "target": "[format('https://{0}.documents.azure.com:443/', parameters('cosmosAccountName'))]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "azure",
+                  "AccountName": "[parameters('cosmosAccountName')]",
+                  "DatabaseName": "agentdb",
+                  "ResourceId": "[parameters('cosmosAccountId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')), 'search-connection')]",
+              "properties": {
+                "category": "CognitiveSearch",
+                "target": "[format('https://{0}.search.windows.net', parameters('searchServiceName'))]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "azure",
+                  "ResourceId": "[parameters('searchServiceId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')), 'rag-storage-connection')]",
+              "properties": {
+                "category": "AzureStorageAccount",
+                "target": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "azure",
+                  "AccountName": "[parameters('storageAccountName')]",
+                  "ContainerName": "rag-documents",
+                  "ResourceId": "[parameters('storageAccountId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('storageAccountId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('storageBlobDataOwnerRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataOwnerRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('storageAccountId'), resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), variables('storageBlobDataOwnerRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataOwnerRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('cosmosAccountId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('cosmosDbOperatorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cosmosDbOperatorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('cosmosAccountId'), resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), variables('cosmosDbOperatorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cosmosDbOperatorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('searchIndexDataContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchIndexDataContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), variables('searchIndexDataContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchIndexDataContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('searchServiceContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchServiceContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), variables('searchServiceContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchServiceContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "foundryAccountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+            },
+            "foundryAccountName": {
+              "type": "string",
+              "value": "[format('cog-{0}', variables('shortSuffix'))]"
+            },
+            "foundryAccountEndpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview').endpoint]"
+            },
+            "foundryProjectId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
+            },
+            "foundryProjectName": {
+              "type": "string",
+              "value": "[format('proj-{0}', variables('shortSuffix'))]"
+            },
+            "managedIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix')))]"
+            },
+            "managedIdentityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix'))), '2023-01-31').principalId]"
+            },
+            "managedIdentityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix'))), '2023-01-31').clientId]"
+            },
+            "systemAssignedPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployJumpbox')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "jumpbox-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "jumpboxSubnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.jumpboxSubnetId.value]"
+          },
+          "adminUsername": {
+            "value": "[parameters('jumpboxAdminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('jumpboxAdminPassword')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "14141363403530949595"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "jumpboxSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Jumpbox subnet ID"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pip-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nic-{0}-windows', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('jumpboxSubnetId')]"
+                      },
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix')))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-03-01",
+              "name": "[format('vm-{0}-win', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "Standard_B2ms"
+                },
+                "osProfile": {
+                  "computerName": "jumpbox-win",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "windows-11",
+                    "sku": "win11-22h2-pro",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "Standard_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-windows', parameters('namePrefix')))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-windows', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "windowsVmPrivateIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-windows', parameters('namePrefix'))), '2023-11-01').ipConfigurations[0].properties.privateIPAddress]"
+            },
+            "windowsVmPublicIp": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix'))), '2023-11-01').ipAddress]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'private-endpoints-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[parameters('resourceGroupName')]"
+    },
+    "resourceGroupId": {
+      "type": "string",
+      "value": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+    },
+    "vnetId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetId.value]"
+    },
+    "vnetName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetName.value]"
+    },
+    "hubSpokeEnabled": {
+      "type": "bool",
+      "value": "[not(empty(parameters('hubVnetId')))]"
+    },
+    "foundryAccountName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountName.value]"
+    },
+    "foundryAccountEndpoint": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountEndpoint.value]"
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryProjectName.value]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountName.value]"
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.cosmosAccountName.value]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceName.value]"
+    },
+    "windowsJumpboxPrivateIp": {
+      "type": "string",
+      "value": "[if(parameters('deployJumpbox'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-deployment'), '2025-04-01').outputs.windowsVmPrivateIp.value, 'not-deployed')]"
+    },
+    "windowsJumpboxPublicIp": {
+      "type": "string",
+      "value": "[if(parameters('deployJumpbox'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-deployment'), '2025-04-01').outputs.windowsVmPublicIp.value, 'not-deployed')]"
+    }
+  }
+}

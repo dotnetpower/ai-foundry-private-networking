@@ -1,0 +1,567 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "12916524147806874987"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "swedencentral",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "rg-aif-jumpbox-krc",
+      "metadata": {
+        "description": "Resource group name for jumpbox"
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "staging",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment name"
+      }
+    },
+    "hubVnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Hub VNet resource ID for peering"
+      }
+    },
+    "hubVnetResourceGroup": {
+      "type": "string",
+      "metadata": {
+        "description": "Hub VNet resource group name"
+      }
+    },
+    "hubVnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Hub VNet name"
+      }
+    },
+    "jumpboxVnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "172.16.0.0/16",
+      "metadata": {
+        "description": "Jumpbox VNet address prefix (simulates on-prem network)"
+      }
+    },
+    "jumpboxSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "172.16.1.0/24",
+      "metadata": {
+        "description": "Jumpbox subnet address prefix"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "azureuser",
+      "metadata": {
+        "description": "Admin username for VM"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for VM"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D4s_v3",
+      "metadata": {
+        "description": "VM size"
+      }
+    },
+    "allowedRdpSourceIP": {
+      "type": "string",
+      "defaultValue": "*",
+      "metadata": {
+        "description": "Allowed source IP for RDP access"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "Environment": "[parameters('environmentName')]",
+        "Project": "AI-Foundry-OnPrem-Simulation",
+        "ManagedBy": "Bicep"
+      },
+      "metadata": {
+        "description": "Tags"
+      }
+    }
+  },
+  "variables": {
+    "namePrefix": "[format('onprem-{0}', parameters('environmentName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "jumpbox-vm-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "jumpboxVnetAddressPrefix": {
+            "value": "[parameters('jumpboxVnetAddressPrefix')]"
+          },
+          "jumpboxSubnetAddressPrefix": {
+            "value": "[parameters('jumpboxSubnetAddressPrefix')]"
+          },
+          "allowedRdpSourceIP": {
+            "value": "[parameters('allowedRdpSourceIP')]"
+          },
+          "hubVnetId": {
+            "value": "[parameters('hubVnetId')]"
+          },
+          "hubVnetResourceGroup": {
+            "value": "[parameters('hubVnetResourceGroup')]"
+          },
+          "hubVnetName": {
+            "value": "[parameters('hubVnetName')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "vmSize": {
+            "value": "[parameters('vmSize')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "6266370348286964099"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "jumpboxVnetAddressPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Jumpbox VNet address prefix"
+              }
+            },
+            "jumpboxSubnetAddressPrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Jumpbox subnet address prefix"
+              }
+            },
+            "allowedRdpSourceIP": {
+              "type": "string",
+              "metadata": {
+                "description": "Allowed source IP for RDP"
+              }
+            },
+            "hubVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Hub VNet resource ID for peering"
+              }
+            },
+            "hubVnetResourceGroup": {
+              "type": "string",
+              "metadata": {
+                "description": "Hub VNet resource group name"
+              }
+            },
+            "hubVnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Hub VNet name"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin username"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Admin password"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "metadata": {
+                "description": "VM size"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nsg-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowRDP",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "3389",
+                      "sourceAddressPrefix": "[parameters('allowedRdpSourceIP')]",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "AllowVNetOutbound",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Outbound",
+                      "access": "Allow",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "VirtualNetwork"
+                    }
+                  },
+                  {
+                    "name": "AllowInternetOutbound",
+                    "properties": {
+                      "priority": 200,
+                      "direction": "Outbound",
+                      "access": "Allow",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "Internet"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-11-01",
+              "name": "[format('vnet-{0}', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('jumpboxVnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-jumpbox",
+                    "properties": {
+                      "addressPrefix": "[parameters('jumpboxSubnetAddressPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('vnet-{0}', parameters('namePrefix')), 'peer-onprem-to-hub')]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('hubVnetId')]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "useRemoteGateways": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pip-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4"
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2023-11-01",
+              "name": "[format('nic-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[0].id]"
+                      },
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix')))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix')))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-03-01",
+              "name": "[format('vm-{0}-jumpbox', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "onprem-pc",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "windows-11",
+                    "sku": "win11-24h2-pro",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "Premium_LRS"
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-jumpbox', parameters('namePrefix')))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-jumpbox', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "hub-to-onprem-peering",
+              "resourceGroup": "[parameters('hubVnetResourceGroup')]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "hubVnetName": {
+                    "value": "[parameters('hubVnetName')]"
+                  },
+                  "remoteVnetId": {
+                    "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                  },
+                  "peeringName": {
+                    "value": "peer-hub-to-onprem"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.41.2.15936",
+                      "templateHash": "7934753189099651689"
+                    }
+                  },
+                  "parameters": {
+                    "hubVnetName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Hub VNet name"
+                      }
+                    },
+                    "remoteVnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Remote VNet resource ID (on-prem jumpbox VNet)"
+                      }
+                    },
+                    "peeringName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Peering name"
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+                      "apiVersion": "2023-11-01",
+                      "name": "[format('{0}/{1}', parameters('hubVnetName'), parameters('peeringName'))]",
+                      "properties": {
+                        "remoteVirtualNetwork": {
+                          "id": "[parameters('remoteVnetId')]"
+                        },
+                        "allowVirtualNetworkAccess": true,
+                        "allowForwardedTraffic": true,
+                        "allowGatewayTransit": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/virtualMachines', format('vm-{0}-jumpbox', parameters('namePrefix')))]"
+            },
+            "vmName": {
+              "type": "string",
+              "value": "[format('vm-{0}-jumpbox', parameters('namePrefix'))]"
+            },
+            "publicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-jumpbox', parameters('namePrefix'))), '2023-11-01').ipAddress]"
+            },
+            "privateIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}-jumpbox', parameters('namePrefix'))), '2023-11-01').ipConfigurations[0].properties.privateIPAddress]"
+            },
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[parameters('resourceGroupName')]"
+    },
+    "vmName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-vm-deployment'), '2025-04-01').outputs.vmName.value]"
+    },
+    "publicIpAddress": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-vm-deployment'), '2025-04-01').outputs.publicIpAddress.value]"
+    },
+    "privateIpAddress": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-vm-deployment'), '2025-04-01').outputs.privateIpAddress.value]"
+    },
+    "jumpboxVnetId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-vm-deployment'), '2025-04-01').outputs.vnetId.value]"
+    }
+  }
+}
