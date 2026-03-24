@@ -83,7 +83,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
 // Networking Module
 // =============================================================================
 
-module networking 'modules/networking/main.bicep' = {
+module networking 'networking/main.bicep' = {
   scope: rg
   name: 'networking-deployment'
   params: {
@@ -103,7 +103,7 @@ module networking 'modules/networking/main.bicep' = {
 // Dependent Resources Module (Storage, Cosmos DB, AI Search)
 // =============================================================================
 
-module dependentResources 'modules/dependent-resources/main.bicep' = {
+module dependentResources 'dependent-resources/main.bicep' = {
   scope: rg
   name: 'dependent-resources-deployment'
   params: {
@@ -120,7 +120,7 @@ module dependentResources 'modules/dependent-resources/main.bicep' = {
 // Private Endpoints Module
 // =============================================================================
 
-module privateEndpoints 'modules/private-endpoints/main.bicep' = {
+module privateEndpoints 'private-endpoints/main.bicep' = {
   scope: rg
   name: 'private-endpoints-deployment'
   params: {
@@ -140,7 +140,7 @@ module privateEndpoints 'modules/private-endpoints/main.bicep' = {
 // AI Foundry Module
 // =============================================================================
 
-module aiFoundry 'modules/ai-foundry/main.bicep' = {
+module aiFoundry 'ai-foundry/main.bicep' = {
   scope: rg
   name: 'ai-foundry-deployment'
   params: {
@@ -161,7 +161,7 @@ module aiFoundry 'modules/ai-foundry/main.bicep' = {
 // Jumpbox Module (Optional)
 // =============================================================================
 
-module jumpbox 'modules/jumpbox/main.bicep' = if (deployJumpbox) {
+module jumpbox 'jumpbox/main.bicep' = if (deployJumpbox) {
   scope: rg
   name: 'jumpbox-deployment'
   params: {
