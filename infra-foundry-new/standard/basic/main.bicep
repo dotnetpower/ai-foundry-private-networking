@@ -160,6 +160,25 @@ module aiFoundry 'ai-foundry/main.bicep' = {
 }
 
 // =============================================================================
+// Capability Host Module (PE + RBAC 완료 후 배포)
+// =============================================================================
+
+module capabilityHost 'ai-foundry/capability-host.bicep' = {
+  scope: rg
+  name: 'capability-host-deployment'
+  params: {
+    accountName: aiFoundry.outputs.foundryAccountName
+    projectName: aiFoundry.outputs.foundryProjectName
+    storageConnectionName: aiFoundry.outputs.storageConnectionName
+    cosmosConnectionName: aiFoundry.outputs.cosmosConnectionName
+    searchConnectionName: aiFoundry.outputs.searchConnectionName
+  }
+  dependsOn: [
+    privateEndpoints
+  ]
+}
+
+// =============================================================================
 // Jumpbox Module (Optional)
 // =============================================================================
 

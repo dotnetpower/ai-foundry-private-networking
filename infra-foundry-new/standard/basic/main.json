@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.41.2.15936",
-      "templateHash": "6467950701911236969"
+      "version": "0.40.2.10011",
+      "templateHash": "14449306888922245019"
     }
   },
   "parameters": {
@@ -18,7 +18,7 @@
     },
     "resourceGroupName": {
       "type": "string",
-      "defaultValue": "rg-aifoundry-bicep",
+      "defaultValue": "rg-aif-new",
       "metadata": {
         "description": "Resource group name"
       }
@@ -180,8 +180,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "5463423271371895387"
+              "version": "0.40.2.10011",
+              "templateHash": "16153572847749883149"
             }
           },
           "parameters": {
@@ -268,8 +268,7 @@
               "privatelink.services.ai.azure.com",
               "privatelink.search.windows.net",
               "privatelink.documents.azure.com",
-              "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
-              "[format('privatelink.file.{0}', environment().suffixes.storage)]"
+              "[format('privatelink.blob.{0}', environment().suffixes.storage)]"
             ]
           },
           "resources": [
@@ -529,8 +528,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "8886008406390736012"
+                      "version": "0.40.2.10011",
+                      "templateHash": "13714651466640291707"
                     }
                   },
                   "parameters": {
@@ -604,8 +603,7 @@
                 "servicesai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[2])]",
                 "search": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[3])]",
                 "cosmosdb": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[4])]",
-                "blob": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[5])]",
-                "file": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[6])]"
+                "blob": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[5])]"
               }
             }
           }
@@ -642,8 +640,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "1673163573647447963"
+              "version": "0.40.2.10011",
+              "templateHash": "824107128682459389"
             }
           },
           "parameters": {
@@ -775,12 +773,7 @@
                 "enableMultipleWriteLocations": false,
                 "publicNetworkAccess": "Disabled",
                 "networkAclBypass": "AzureServices",
-                "disableLocalAuth": true,
-                "capabilities": [
-                  {
-                    "name": "EnableServerless"
-                  }
-                ]
+                "disableLocalAuth": true
               }
             },
             {
@@ -923,8 +916,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "4560595432279228779"
+              "version": "0.40.2.10011",
+              "templateHash": "9996824417953017539"
             }
           },
           "parameters": {
@@ -1082,47 +1075,6 @@
             {
               "type": "Microsoft.Network/privateEndpoints",
               "apiVersion": "2023-11-01",
-              "name": "[format('pe-{0}-storage-file', parameters('namePrefix'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "subnet": {
-                  "id": "[parameters('privateEndpointSubnetId')]"
-                },
-                "privateLinkServiceConnections": [
-                  {
-                    "name": "plsc-storage-file",
-                    "properties": {
-                      "privateLinkServiceId": "[parameters('storageAccountId')]",
-                      "groupIds": [
-                        "file"
-                      ]
-                    }
-                  }
-                ]
-              }
-            },
-            {
-              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
-              "apiVersion": "2023-11-01",
-              "name": "[format('{0}/{1}', format('pe-{0}-storage-file', parameters('namePrefix')), 'default')]",
-              "properties": {
-                "privateDnsZoneConfigs": [
-                  {
-                    "name": "file",
-                    "properties": {
-                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').file]"
-                    }
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Network/privateEndpoints",
-              "apiVersion": "2023-11-01",
               "name": "[format('pe-{0}-cosmos', parameters('namePrefix'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
@@ -1209,19 +1161,8 @@
               "value": {
                 "foundry": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-foundry', parameters('namePrefix')))]",
                 "storageBlob": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-blob', parameters('namePrefix')))]",
-                "storageFile": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix')))]",
                 "cosmos": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-cosmos', parameters('namePrefix')))]",
                 "search": "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix')))]"
-              }
-            },
-            "privateEndpointIps": {
-              "type": "object",
-              "value": {
-                "foundry": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-foundry', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
-                "storageBlob": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-blob', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
-                "storageFile": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-storage-file', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
-                "cosmos": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-cosmos', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]",
-                "search": "[reference(resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix'))), '2023-11-01').customDnsConfigs[0].ipAddresses[0]]"
               }
             }
           }
@@ -1282,8 +1223,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "14306157415650006453"
+              "version": "0.40.2.10011",
+              "templateHash": "6584885858152527176"
             }
           },
           "parameters": {
@@ -1316,7 +1257,7 @@
             "agentSubnetId": {
               "type": "string",
               "metadata": {
-                "description": "Agent subnet ID for capability host"
+                "description": "Agent subnet ID for network injection"
               }
             },
             "storageAccountId": {
@@ -1389,8 +1330,17 @@
                 "publicNetworkAccess": "Disabled",
                 "networkAcls": {
                   "defaultAction": "Deny",
+                  "virtualNetworkRules": [],
+                  "ipRules": [],
                   "bypass": "AzureServices"
                 },
+                "networkInjections": [
+                  {
+                    "scenario": "agent",
+                    "subnetArmId": "[parameters('agentSubnetId')]",
+                    "useMicrosoftManagedNetwork": false
+                  }
+                ],
                 "disableLocalAuth": false,
                 "allowProjectManagement": true
               }
@@ -1427,7 +1377,7 @@
                 "model": {
                   "format": "OpenAI",
                   "name": "gpt-5.2",
-                  "version": "2025-03-01"
+                  "version": "2025-12-11"
                 },
                 "raiPolicyName": "Microsoft.DefaultV2"
               },
@@ -1690,6 +1640,18 @@
             "systemAssignedPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]"
+            },
+            "storageConnectionName": {
+              "type": "string",
+              "value": "storage-connection"
+            },
+            "cosmosConnectionName": {
+              "type": "string",
+              "value": "cosmos-connection"
+            },
+            "searchConnectionName": {
+              "type": "string",
+              "value": "search-connection"
             }
           }
         }
@@ -1697,6 +1659,108 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "capability-host-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountName.value]"
+          },
+          "projectName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryProjectName.value]"
+          },
+          "storageConnectionName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.storageConnectionName.value]"
+          },
+          "cosmosConnectionName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.cosmosConnectionName.value]"
+          },
+          "searchConnectionName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.searchConnectionName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.40.2.10011",
+              "templateHash": "6004272670214632030"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry Account name"
+              }
+            },
+            "projectName": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry Project name"
+              }
+            },
+            "storageConnectionName": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage connection name"
+              }
+            },
+            "cosmosConnectionName": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB connection name"
+              }
+            },
+            "searchConnectionName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search connection name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects/capabilityHosts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), parameters('projectName'), 'default')]",
+              "properties": {
+                "capabilityHostKind": "Agents",
+                "vectorStoreConnections": [
+                  "[parameters('searchConnectionName')]"
+                ],
+                "storageConnections": [
+                  "[parameters('storageConnectionName')]"
+                ],
+                "threadStorageConnections": [
+                  "[parameters('cosmosConnectionName')]"
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "capabilityHostName": {
+              "type": "string",
+              "value": "default"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'private-endpoints-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     },
@@ -1737,8 +1801,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "14141363403530949595"
+              "version": "0.40.2.10011",
+              "templateHash": "10204940424253153418"
             }
           },
           "parameters": {
@@ -1840,7 +1904,7 @@
                   "imageReference": {
                     "publisher": "MicrosoftWindowsDesktop",
                     "offer": "windows-11",
-                    "sku": "win11-22h2-pro",
+                    "sku": "win11-24h2-pro",
                     "version": "latest"
                   },
                   "osDisk": {

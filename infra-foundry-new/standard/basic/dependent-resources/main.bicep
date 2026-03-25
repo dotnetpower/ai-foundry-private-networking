@@ -108,11 +108,6 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     publicNetworkAccess: 'Disabled'
     networkAclBypass: 'AzureServices'
     disableLocalAuth: true  // Force Azure AD authentication
-    capabilities: [
-      {
-        name: 'EnableServerless'
-      }
-    ]
   }
 }
 

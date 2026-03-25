@@ -242,7 +242,6 @@ var privateDnsZones = [
   'privatelink.search.windows.net'
   'privatelink.documents.azure.com'
   'privatelink.blob.${environment().suffixes.storage}'
-  'privatelink.file.${environment().suffixes.storage}'
 ]
 
 resource dnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for zone in privateDnsZones: {
@@ -327,5 +326,4 @@ output privateDnsZoneIds object = {
   search: dnsZones[3].id
   cosmosdb: dnsZones[4].id
   blob: dnsZones[5].id
-  file: dnsZones[6].id
 }

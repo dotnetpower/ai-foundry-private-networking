@@ -13,12 +13,12 @@ VNet + Private Endpoint 기반으로 모든 트래픽이 Microsoft 백본 네트
 |----------|--------|------|
 | **네트워크** | VNet, Subnets (3개), NSGs | 192.168.0.0/16 |
 | **Hub-Spoke** | VNet Peering (양방향), DNS Zone Hub Link | 선택적 |
-| **Private DNS Zones** | 7개 | cognitiveservices, openai, services.ai 등 |
-| **AI Foundry** | Account, Project | kind=AIServices |
+| **Private DNS Zones** | 6개 | cognitiveservices, openai, services.ai 등 |
+| **AI Foundry** | Account, Project, Capability Host | kind=AIServices, networkInjections |
 | **모델 배포** | GPT-4o, GPT-5.2, text-embedding-3-large | GlobalStandard SKU |
 | **의존 서비스** | Storage, Cosmos DB, AI Search | Private Endpoint 연결 |
 | **RAG 인프라** | Storage (rag-documents, rag-chunks), AI Search (semantic), Embedding 모델 | RAG 파이프라인 지원 |
-| **Private Endpoints** | 5개 | foundry, storage-blob, storage-file, cosmos, search |
+| **Private Endpoints** | 4개 | foundry, storage-blob, cosmos, search |
 | **RBAC** | 9개 역할 할당 | Managed Identity 기반 |
 | **Jumpbox** (선택) | Windows VM + Public IP | VNet 내부 접속용 (RDP) |
 
@@ -93,62 +93,12 @@ az deployment sub create \
 
 배포 시간: 약 15-20분
 
-### 2단계: Portal에서 Agent Setup 구성
+Bicep 배포 시 다음이 자동으로 구성됩니다:
+- Account에 `networkInjections`로 Agent 서브넷 주입
+- Project 수준 Capability Host 배포 (Storage, Cosmos, Search 연결)
+- RBAC 역할 할당
 
-Bicep 배포가 완료되면 Azure AI Foundry Portal에서 Agent를 설정합니다.
-
-> **왜 Portal 설정이 필요한가?**
-> Agent의 VNet 연동 설정은 Bicep API에서 미지원이므로,
-> Bicep으로 인프라(VNet, PE, DNS, RBAC)를 배포한 후 Agent 연결은 Portal에서 수동 구성합니다.
-
-#### Step 1: AI Foundry Portal 접속
-
-1. [Azure AI Foundry Portal](https://ai.azure.com) 접속
-2. 좌측 메뉴에서 **모든 프로젝트** 클릭
-3. Bicep으로 배포된 Project (`proj-xxxxxxxx`) 선택
-
-#### Step 2: Agent Setup 진입
-
-1. 좌측 메뉴 **관리(Management)** > **에이전트(Agents)** 클릭
-2. **에이전트 설정(Agent setup)** 버튼 클릭
-3. **Standard agent setup** 선택 (Private Networking 지원)
-
-#### Step 3: 네트워크 구성
-
-1. **Virtual Network** 드롭다운에서 Bicep으로 생성된 VNet 선택
-   - 예: `vnet-aifoundry-dev`
-2. **Subnet** 드롭다운에서 Agent 서브넷 선택
-   - 예: `snet-agent` (192.168.0.0/24, `Microsoft.App/environments` 위임됨)
-
-#### Step 4: Connection 구성
-
-| Connection 항목 | 선택할 Connection | 용도 |
-|-----------------|-------------------|------|
-| **AI Services** | (자동 연결) | Foundry Account 기본 연결 |
-| **Storage** | `storage-connection` | Agent 데이터 저장 (agents-data 컨테이너) |
-| **Thread Storage** | `cosmos-connection` | 대화 스레드 저장 (Cosmos DB agentdb) |
-| **Vector Store** | `search-connection` | RAG 벡터 검색 (AI Search semantic) |
-
-#### Step 5: 적용 및 프로비저닝
-
-1. **적용(Apply)** 클릭
-2. 프로비저닝 진행 (약 5-10분 소요)
-   - Managed Environment 생성
-   - Container App 배포
-   - Private Endpoint 자동 생성
-3. 상태가 **Succeeded**로 변경되면 완료
-
-#### Step 6: 동작 확인
-
-1. 좌측 메뉴 **에이전트(Agents)** 클릭
-2. **+ 새 에이전트(New Agent)** 클릭
-3. 모델 선택: `gpt-4o` 또는 `gpt-5.2`
-4. 시스템 프롬프트 입력 후 테스트 메시지 전송
-5. 응답이 정상적으로 반환되면 Agent Setup 완료
-
-> **RAG 활용 시**: Agent 생성 후 **도구(Tools)** > **파일 검색(File Search)** 추가 →
-> Vector Store 생성 → `rag-documents` 컨테이너의 파일 업로드 →
-> `text-embedding-3-large` 모델로 자동 임베딩
+배포 후 VNet 내부에서 (Jumpbox/VPN/ExpressRoute) AI Foundry Portal에 접속하여 Agent를 생성하면 됩니다.
 
 ## 배포 검증
 

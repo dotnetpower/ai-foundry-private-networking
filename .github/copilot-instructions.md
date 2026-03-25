@@ -40,9 +40,8 @@ applyTo: '**'
 ### Standard Agent Setup (`infra-foundry-new/standard/`)
 - **Private Networking 지원**: VNet + Private Endpoint + Private DNS Zone
 - **프롬프트 기반 Agent**: 코드 없이 Foundry 내장 도구 사용
-- **Capability Host**: Project 수준, VNet subnet 연동
-  - Bicep API에서 `virtualNetworkSubnetResourceId` 미지원
-  - **CLI 스크립트(`scripts/setup-capability-host.sh`)로 자동 구성**
+- **networkInjections**: Account에 Agent 서브넷 주입 (`scenario: 'agent'`)
+- **Capability Host**: Project 수준, Bicep `2025-04-01-preview`로 배포
 - **필요 인프라**: VNet, Storage, Cosmos DB, AI Search, Private Endpoints
 
 ### Hosted Agent Setup (`infra-foundry-new/hosted/`)
@@ -72,7 +71,7 @@ infra-foundry-new/
 ├── standard/                    # Standard Agent (Private Networking)
 │   ├── main.bicep               # 메인 배포 템플릿
 │   ├── networking/              # VNet, Subnet, NSG, Private DNS Zones
-│   ├── ai-foundry/              # Foundry Account, Project, Models, RBAC
+│   ├── ai-foundry/              # Foundry Account, Project, Models, Capability Host, RBAC
 │   ├── dependent-resources/     # Storage, Cosmos DB, AI Search
 │   ├── private-endpoints/       # Private Endpoints, DNS Zone Groups
 │   ├── jumpbox/                 # Jumpbox VM, Bastion (선택)
@@ -85,7 +84,6 @@ infra-foundry-new/
 │   └── parameters/
 scripts/
 ├── setup-hub-spoke.sh           # Hub VNet 생성 (Classic용)
-├── setup-capability-host.sh     # Standard Agent Capability Host CLI 구성
 ├── deploy-hosted-agent.sh       # Hosted Agent 배포
 └── verify-deployment.sh         # 배포 검증
 ```
@@ -111,7 +109,9 @@ scripts/
 - **Account API 버전**: `2025-04-01-preview`
 - **publicNetworkAccess**: `Disabled`
 - **Agent 서브넷 위임**: `Microsoft.App/environments`
-- **Capability Host**: Bicep 불가 → `scripts/setup-capability-host.sh` 사용
+- **networkInjections**: Account properties에 `scenario: 'agent'`, `subnetArmId`, `useMicrosoftManagedNetwork: false`
+- **Capability Host**: `accounts/projects/capabilityHosts` Bicep 리소스로 배포
+- **배포 순서**: Account → PE → RBAC → Capability Host
 
 ### Hosted Agent 전용
 - **Account API 버전**: `2025-04-01-preview`
@@ -127,7 +127,7 @@ scripts/
 | `Storage name too long` | 이름 24자 초과 | `shortSuffix = take(uniqueSuffix, 8)` |
 | `GlobalStandard SKU error` | 리전 미지원 | Sweden Central 사용 |
 | `Connection category error` | AzureBlob 카테고리 오류 | `AzureStorageAccount` 사용 |
-| `virtualNetworkSubnetResourceId not found` | Capability Host API 미지원 | CLI 스크립트 사용 |
+
 | `AcrPullWithMSIFailed` | ACR RBAC 미설정 | Project MI에 AcrPull 역할 할당 |
 | `Hub Managed VNet PE 프로비저닝 실패` | 종속 리소스 `publicNetworkAccess: Disabled` | 초기 배포 시 `Enabled`, PE 완료 후 `Disabled` 전환 |
 | `Classic Hub + preview API 호환성` | OpenAI `2025-04-01-preview` 사용 | GA 버전 `2024-10-01` 사용 |
@@ -158,9 +158,6 @@ az deployment sub create --location koreacentral \
 cd infra-foundry-new/standard
 az deployment sub create --location swedencentral \
   --template-file main.bicep --parameters parameters/dev.bicepparam
-
-# Capability Host 구성 (Bicep 후속)
-../../scripts/setup-capability-host.sh --resource-group <rg-name>
 ```
 
 ### Hosted Agent

@@ -124,47 +124,6 @@ resource peStorageBlobDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZon
 }
 
 // =============================================================================
-// Private Endpoint for Storage Account (File)
-// =============================================================================
-
-resource peStorageFile 'Microsoft.Network/privateEndpoints@2023-11-01' = {
-  name: 'pe-${namePrefix}-storage-file'
-  location: location
-  tags: tags
-  properties: {
-    subnet: {
-      id: privateEndpointSubnetId
-    }
-    privateLinkServiceConnections: [
-      {
-        name: 'plsc-storage-file'
-        properties: {
-          privateLinkServiceId: storageAccountId
-          groupIds: [
-            'file'
-          ]
-        }
-      }
-    ]
-  }
-}
-
-resource peStorageFileDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
-  parent: peStorageFile
-  name: 'default'
-  properties: {
-    privateDnsZoneConfigs: [
-      {
-        name: 'file'
-        properties: {
-          privateDnsZoneId: privateDnsZoneIds.file
-        }
-      }
-    ]
-  }
-}
-
-// =============================================================================
 // Private Endpoint for Cosmos DB
 // =============================================================================
 
@@ -253,7 +212,6 @@ resource peSearchDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGrou
 output privateEndpointIds object = {
   foundry: peFoundry.id
   storageBlob: peStorageBlob.id
-  storageFile: peStorageFile.id
   cosmos: peCosmos.id
   search: peSearch.id
 }

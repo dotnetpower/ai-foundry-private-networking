@@ -14,7 +14,7 @@ param uniqueSuffix string = uniqueString(resourceGroup().id)
 @description('Tags to apply to all resources')
 param tags object = {}
 
-@description('Agent subnet ID for capability host')
+@description('Agent subnet ID for network injection')
 param agentSubnetId string
 
 @description('Storage Account resource ID')
@@ -68,8 +68,18 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview
     publicNetworkAccess: 'Disabled'
     networkAcls: {
       defaultAction: 'Deny'
+      virtualNetworkRules: []
+      ipRules: []
       bypass: 'AzureServices'
     }
+    #disable-next-line BCP036
+    networkInjections: [
+      {
+        scenario: 'agent'
+        subnetArmId: agentSubnetId
+        useMicrosoftManagedNetwork: false
+      }
+    ]
     disableLocalAuth: false
     allowProjectManagement: true
   }
@@ -343,3 +353,7 @@ output managedIdentityPrincipalId string = managedIdentity.properties.principalI
 output managedIdentityClientId string = managedIdentity.properties.clientId
 
 output systemAssignedPrincipalId string = foundryAccount.identity.principalId
+
+output storageConnectionName string = storageConnection.name
+output cosmosConnectionName string = cosmosConnection.name
+output searchConnectionName string = searchConnection.name
