@@ -22,12 +22,7 @@ param location string = 'swedencentral'
 @description('리소스 그룹 이름')
 param resourceGroupName string = 'rg-aif-classic-basic-swc'
 
-@description('환경 이름 (dev, staging, prod) - 리소스 이름 프리픽스에 사용')
-@allowed([
-  'dev'
-  'staging'
-  'prod'
-])
+@description('환경 이름 - 리소스 이름 프리픽스에 사용')
 param environmentName string = 'dev'
 
 @description('Managed VNet 격리 모드: AllowInternetOutbound(인터넷 아웃바운드 허용) 또는 AllowOnlyApprovedOutbound(승인된 아웃바운드만 허용)')
@@ -138,6 +133,9 @@ module aiFoundry 'ai-foundry/main.bicep' = {
     managedVnetIsolationMode: managedVnetIsolationMode
     storageAccountId: dependentResources.outputs.storageAccountId
     keyVaultId: dependentResources.outputs.keyVaultId
+    searchServiceId: dependentResources.outputs.searchServiceId
+    searchServiceName: dependentResources.outputs.searchServiceName
+    searchServicePrincipalId: dependentResources.outputs.searchServicePrincipalId
     tags: tags
   }
 }
@@ -159,6 +157,7 @@ module privateEndpoints 'private-endpoints/main.bicep' = {
     keyVaultId: dependentResources.outputs.keyVaultId
     openAiAccountId: aiFoundry.outputs.openAiAccountId
     hubId: aiFoundry.outputs.hubId
+    searchServiceId: dependentResources.outputs.searchServiceId
     privateDnsZoneIds: networking.outputs.privateDnsZoneIds
     tags: tags
   }
@@ -183,3 +182,4 @@ output openAiEndpoint string = aiFoundry.outputs.openAiEndpoint
 
 output storageAccountName string = dependentResources.outputs.storageAccountName
 output keyVaultName string = dependentResources.outputs.keyVaultName
+output searchServiceName string = dependentResources.outputs.searchServiceName

@@ -89,6 +89,33 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 }
 
 // =============================================================================
+// AI Search (RAG 벡터 검색용)
+// =============================================================================
+
+resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
+  name: 'srch-${shortSuffix}'
+  location: location
+  tags: tags
+  sku: {
+    name: 'basic'
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    hostingMode: 'default'
+    partitionCount: 1
+    replicaCount: 1
+    publicNetworkAccess: 'Disabled' // PE로만 접근 — Jumpbox에서 인덱싱/쿼리 수행
+    authOptions: {
+      aadOrApiKey: {
+        aadAuthFailureMode: 'http401WithBearerChallenge'
+      }
+    }
+  }
+}
+
+// =============================================================================
 // Outputs
 // =============================================================================
 
@@ -97,3 +124,7 @@ output storageAccountName string = storageAccount.name
 
 output keyVaultId string = keyVault.id
 output keyVaultName string = keyVault.name
+
+output searchServiceId string = searchService.id
+output searchServiceName string = searchService.name
+output searchServicePrincipalId string = searchService.identity.principalId

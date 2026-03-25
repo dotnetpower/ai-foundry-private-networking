@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.41.2.15936",
-      "templateHash": "10675380576365401993"
+      "version": "0.40.2.10011",
+      "templateHash": "3999068739734654645"
     }
   },
   "parameters": {
@@ -13,26 +13,21 @@
       "type": "string",
       "defaultValue": "swedencentral",
       "metadata": {
-        "description": "Location for all resources"
+        "description": "모든 리소스의 배포 위치 (Sweden Central: OpenAI GlobalStandard 지원)"
       }
     },
     "resourceGroupName": {
       "type": "string",
       "defaultValue": "rg-aif-classic-basic-swc",
       "metadata": {
-        "description": "Resource group name"
+        "description": "리소스 그룹 이름"
       }
     },
     "environmentName": {
       "type": "string",
       "defaultValue": "dev",
-      "allowedValues": [
-        "dev",
-        "staging",
-        "prod"
-      ],
       "metadata": {
-        "description": "Environment name (dev, staging, prod)"
+        "description": "환경 이름 - 리소스 이름 프리픽스에 사용"
       }
     },
     "managedVnetIsolationMode": {
@@ -43,46 +38,60 @@
         "AllowOnlyApprovedOutbound"
       ],
       "metadata": {
-        "description": "Managed VNet isolation mode"
+        "description": "Managed VNet 격리 모드: AllowInternetOutbound(인터넷 아웃바운드 허용) 또는 AllowOnlyApprovedOutbound(승인된 아웃바운드만 허용)"
       }
     },
     "hubVnetId": {
       "type": "string",
       "metadata": {
-        "description": "Hub VNet resource ID for peering"
+        "description": "Hub VNet 리소스 ID - setup-hub-spoke.sh로 사전 생성한 Hub VNet"
       }
     },
     "hubVnetResourceGroup": {
       "type": "string",
       "metadata": {
-        "description": "Hub VNet resource group name"
+        "description": "Hub VNet 리소스 그룹 이름 (cross-RG peering에 필요)"
       }
     },
     "hubVnetName": {
       "type": "string",
       "metadata": {
-        "description": "Hub VNet name"
+        "description": "Hub VNet 이름 (cross-RG peering에 필요)"
       }
     },
     "vnetAddressPrefix": {
       "type": "string",
       "defaultValue": "10.1.0.0/16",
       "metadata": {
-        "description": "Spoke VNet address prefix"
+        "description": "Spoke VNet 주소 대역 (Hub VNet 및 다른 Spoke와 겹치지 않아야 함)"
       }
     },
     "privateEndpointSubnetAddressPrefix": {
       "type": "string",
       "defaultValue": "10.1.1.0/24",
       "metadata": {
-        "description": "Private Endpoint subnet address prefix"
+        "description": "Private Endpoint 서브넷 주소 대역"
       }
     },
     "jumpboxVnetId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "Jumpbox VNet ID for DNS zone linking (optional, for on-prem access)"
+        "description": "Jumpbox VNet ID - DNS Zone 링크 및 Spoke↔Jumpbox 직접 Peering에 사용 (비어있으면 생략)"
+      }
+    },
+    "jumpboxVnetResourceGroup": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Jumpbox VNet 리소스 그룹 (Spoke↔Jumpbox Peering용, VNet Peering은 transitive하지 않으므로 직접 연결 필수)"
+      }
+    },
+    "jumpboxVnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Jumpbox VNet 이름 (Spoke↔Jumpbox Peering용)"
       }
     },
     "tags": {
@@ -93,7 +102,7 @@
         "ManagedBy": "Bicep"
       },
       "metadata": {
-        "description": "Tags to apply to all resources"
+        "description": "모든 리소스에 적용할 태그"
       }
     }
   },
@@ -143,6 +152,12 @@
           "jumpboxVnetId": {
             "value": "[parameters('jumpboxVnetId')]"
           },
+          "jumpboxVnetResourceGroup": {
+            "value": "[parameters('jumpboxVnetResourceGroup')]"
+          },
+          "jumpboxVnetName": {
+            "value": "[parameters('jumpboxVnetName')]"
+          },
           "tags": {
             "value": "[parameters('tags')]"
           }
@@ -153,8 +168,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "3716118404328536264"
+              "version": "0.40.2.10011",
+              "templateHash": "3364926565672163810"
             }
           },
           "parameters": {
@@ -209,6 +224,20 @@
                 "description": "Jumpbox VNet ID for DNS zone linking (optional)"
               }
             },
+            "jumpboxVnetResourceGroup": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Jumpbox VNet resource group name (for cross-RG peering)"
+              }
+            },
+            "jumpboxVnetName": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Jumpbox VNet name (for cross-RG peering)"
+              }
+            },
             "tags": {
               "type": "object",
               "defaultValue": {},
@@ -225,7 +254,8 @@
               "[format('privatelink.file.{0}', environment().suffixes.storage)]",
               "privatelink.vaultcore.azure.net",
               "privatelink.api.azureml.ms",
-              "privatelink.notebooks.azure.net"
+              "privatelink.notebooks.azure.net",
+              "privatelink.search.windows.net"
             ]
           },
           "resources": [
@@ -362,6 +392,23 @@
               ]
             },
             {
+              "condition": "[not(empty(parameters('jumpboxVnetId')))]",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('vnet-{0}', parameters('namePrefix')), 'peer-spoke-to-jumpbox')]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[parameters('jumpboxVnetId')]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "useRemoteGateways": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
               "type": "Microsoft.Resources/deployments",
               "apiVersion": "2025-04-01",
               "name": "[format('hub-to-spoke-{0}-peering', parameters('namePrefix'))]",
@@ -388,8 +435,81 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "2775478432865944655"
+                      "version": "0.40.2.10011",
+                      "templateHash": "3988925771434937868"
+                    }
+                  },
+                  "parameters": {
+                    "hubVnetName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Hub VNet name"
+                      }
+                    },
+                    "remoteVnetId": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Remote VNet resource ID"
+                      }
+                    },
+                    "peeringName": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "Peering name"
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+                      "apiVersion": "2023-11-01",
+                      "name": "[format('{0}/{1}', parameters('hubVnetName'), parameters('peeringName'))]",
+                      "properties": {
+                        "remoteVirtualNetwork": {
+                          "id": "[parameters('remoteVnetId')]"
+                        },
+                        "allowVirtualNetworkAccess": true,
+                        "allowForwardedTraffic": true,
+                        "allowGatewayTransit": true
+                      }
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "condition": "[and(not(empty(parameters('jumpboxVnetId'))), not(empty(parameters('jumpboxVnetResourceGroup'))))]",
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "jumpbox-to-spoke-peering",
+              "resourceGroup": "[parameters('jumpboxVnetResourceGroup')]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "hubVnetName": {
+                    "value": "[parameters('jumpboxVnetName')]"
+                  },
+                  "remoteVnetId": {
+                    "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                  },
+                  "peeringName": {
+                    "value": "peer-jumpbox-to-spoke"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.40.2.10011",
+                      "templateHash": "3988925771434937868"
                     }
                   },
                   "parameters": {
@@ -456,7 +576,8 @@
                 "file": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[3])]",
                 "keyVault": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[4])]",
                 "azureml": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[5])]",
-                "notebooks": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[6])]"
+                "notebooks": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[6])]",
+                "search": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[7])]"
               }
             }
           }
@@ -493,15 +614,15 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "12678967090290421633"
+              "version": "0.40.2.10011",
+              "templateHash": "6265739945751229064"
             }
           },
           "parameters": {
             "location": {
               "type": "string",
               "metadata": {
-                "description": "Location for all resources"
+                "description": "리소스 배포 위치"
               }
             },
             "namePrefix": {
@@ -591,6 +712,30 @@
                   "bypass": "AzureServices"
                 }
               }
+            },
+            {
+              "type": "Microsoft.Search/searchServices",
+              "apiVersion": "2024-06-01-preview",
+              "name": "[format('srch-{0}', variables('shortSuffix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "basic"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "hostingMode": "default",
+                "partitionCount": 1,
+                "replicaCount": 1,
+                "publicNetworkAccess": "Disabled",
+                "authOptions": {
+                  "aadOrApiKey": {
+                    "aadAuthFailureMode": "http401WithBearerChallenge"
+                  }
+                }
+              }
             }
           ],
           "outputs": {
@@ -609,6 +754,18 @@
             "keyVaultName": {
               "type": "string",
               "value": "[format('kv-{0}', variables('shortSuffix'))]"
+            },
+            "searchServiceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Search/searchServices', format('srch-{0}', variables('shortSuffix')))]"
+            },
+            "searchServiceName": {
+              "type": "string",
+              "value": "[format('srch-{0}', variables('shortSuffix'))]"
+            },
+            "searchServicePrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Search/searchServices', format('srch-{0}', variables('shortSuffix'))), '2024-06-01-preview', 'full').identity.principalId]"
             }
           }
         }
@@ -643,6 +800,15 @@
           "keyVaultId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.keyVaultId.value]"
           },
+          "searchServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceId.value]"
+          },
+          "searchServiceName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceName.value]"
+          },
+          "searchServicePrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServicePrincipalId.value]"
+          },
           "tags": {
             "value": "[parameters('tags')]"
           }
@@ -653,28 +819,28 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "749195401044960940"
+              "version": "0.40.2.10011",
+              "templateHash": "14202118960778601270"
             }
           },
           "parameters": {
             "location": {
               "type": "string",
               "metadata": {
-                "description": "Location for all resources"
+                "description": "리소스 배포 위치"
               }
             },
             "namePrefix": {
               "type": "string",
               "metadata": {
-                "description": "Resource name prefix"
+                "description": "리소스 이름 프리픽스"
               }
             },
             "uniqueSuffix": {
               "type": "string",
               "defaultValue": "[uniqueString(resourceGroup().id)]",
               "metadata": {
-                "description": "Unique suffix for globally unique names"
+                "description": "전역적으로 고유한 이름 생성용 접미사 (resourceGroup().id 기반)"
               }
             },
             "managedVnetIsolationMode": {
@@ -685,26 +851,44 @@
                 "AllowOnlyApprovedOutbound"
               ],
               "metadata": {
-                "description": "Managed VNet isolation mode"
+                "description": "Managed VNet 격리 모드"
               }
             },
             "storageAccountId": {
               "type": "string",
               "metadata": {
-                "description": "Storage Account resource ID"
+                "description": "Storage Account 리소스 ID (Hub의 기본 데이터 저장소로 사용)"
               }
             },
             "keyVaultId": {
               "type": "string",
               "metadata": {
-                "description": "Key Vault resource ID"
+                "description": "Key Vault 리소스 ID (Hub의 비밀 관리용)"
+              }
+            },
+            "searchServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search 리소스 ID (RAG 벡터 검색용)"
+              }
+            },
+            "searchServiceName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search 리소스 이름 (Hub Connection용)"
+              }
+            },
+            "searchServicePrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search Managed Identity Principal ID (RBAC용)"
               }
             },
             "tags": {
               "type": "object",
               "defaultValue": {},
               "metadata": {
-                "description": "Tags to apply to all resources"
+                "description": "모든 리소스에 적용할 태그"
               }
             }
           },
@@ -712,7 +896,11 @@
             "shortSuffix": "[take(parameters('uniqueSuffix'), 8)]",
             "cognitiveServicesOpenAiContributorRoleId": "a001fd3d-188f-4b5d-821b-7da978bf7442",
             "storageBlobDataContributorRoleId": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
-            "keyVaultAdministratorRoleId": "00482a5a-887f-4fb3-b363-3b7fe8e74483"
+            "keyVaultAdministratorRoleId": "00482a5a-887f-4fb3-b363-3b7fe8e74483",
+            "searchIndexDataContributorRoleId": "8ebe5a00-799e-43f5-93ac-243d3dce84a7",
+            "searchServiceContributorRoleId": "7ca78c08-252a-4471-8644-bb5ff32d4ba0",
+            "cognitiveServicesOpenAiUserRoleId": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
+            "storageBlobDataReaderRoleId": "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1"
           },
           "resources": [
             {
@@ -807,6 +995,14 @@
                         "subresourceTarget": "account",
                         "sparkEnabled": false
                       }
+                    },
+                    "search": {
+                      "type": "PrivateEndpoint",
+                      "destination": {
+                        "serviceResourceId": "[parameters('searchServiceId')]",
+                        "subresourceTarget": "searchService",
+                        "sparkEnabled": false
+                      }
                     }
                   }
                 }
@@ -897,6 +1093,103 @@
               "dependsOn": [
                 "[resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix')))]"
               ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix'))), variables('searchIndexDataContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchIndexDataContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix'))), '2024-10-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix'))), variables('searchIndexDataContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchIndexDataContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix'))), '2024-10-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix'))), variables('searchServiceContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchServiceContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix'))), '2024-10-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix'))), variables('searchServiceContributorRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('searchServiceContributorRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix'))), '2024-10-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('proj-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', variables('shortSuffix')))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', variables('shortSuffix'))), parameters('searchServiceId'), variables('cognitiveServicesOpenAiUserRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAiUserRoleId'))]",
+                "principalId": "[parameters('searchServicePrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('storageAccountId'), parameters('searchServiceId'), variables('storageBlobDataReaderRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataReaderRoleId'))]",
+                "principalId": "[parameters('searchServicePrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.MachineLearningServices/workspaces/connections",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}/{1}', format('hub-{0}', variables('shortSuffix')), 'search-connection')]",
+              "properties": {
+                "category": "CognitiveSearch",
+                "target": "[format('https://{0}.search.windows.net', parameters('searchServiceName'))]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "Azure",
+                  "ResourceId": "[parameters('searchServiceId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('hub-{0}', variables('shortSuffix')))]"
+              ]
             }
           ],
           "outputs": {
@@ -972,6 +1265,9 @@
           "hubId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.hubId.value]"
           },
+          "searchServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceId.value]"
+          },
           "privateDnsZoneIds": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.privateDnsZoneIds.value]"
           },
@@ -985,15 +1281,15 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "16207359000757911666"
+              "version": "0.40.2.10011",
+              "templateHash": "6178208967447888377"
             }
           },
           "parameters": {
             "location": {
               "type": "string",
               "metadata": {
-                "description": "Location for all resources"
+                "description": "리소스 배포 위치"
               }
             },
             "namePrefix": {
@@ -1030,6 +1326,12 @@
               "type": "string",
               "metadata": {
                 "description": "AI Hub workspace resource ID"
+              }
+            },
+            "searchServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search resource ID"
               }
             },
             "privateDnsZoneIds": {
@@ -1263,6 +1565,47 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-hub', parameters('namePrefix')))]"
               ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[format('pe-{0}-search', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('psc-{0}-search', parameters('namePrefix'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[parameters('searchServiceId')]",
+                      "groupIds": [
+                        "searchService"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', format('pe-{0}-search', parameters('namePrefix')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "search-dns",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneIds').search]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}-search', parameters('namePrefix')))]"
+              ]
             }
           ]
         }
@@ -1319,6 +1662,10 @@
     "keyVaultName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.keyVaultName.value]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceName.value]"
     }
   }
 }

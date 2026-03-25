@@ -1,5 +1,5 @@
 // =============================================================================
-// Private Endpoints 모듈 - Storage, Key Vault, OpenAI, Hub Workspace
+// Private Endpoints 모듈 - Storage, Key Vault, OpenAI, Hub Workspace, AI Search
 // =============================================================================
 // Spoke VNet의 PE 서브넷에 각 리소스의 Private Endpoint를 생성합니다.
 // DNS Zone Group을 통해 Private DNS Zone에 A 레코드 자동 등록
@@ -26,6 +26,9 @@ param openAiAccountId string
 
 @description('AI Hub workspace resource ID')
 param hubId string
+
+@description('AI Search resource ID')
+param searchServiceId string
 
 @description('Private DNS Zone IDs')
 param privateDnsZoneIds object
@@ -234,6 +237,45 @@ resource hubDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@20
         name: 'notebooks-dns'
         properties: {
           privateDnsZoneId: privateDnsZoneIds.notebooks
+        }
+      }
+    ]
+  }
+}
+
+// =============================================================================
+// AI Search PE
+// =============================================================================
+
+resource searchPe 'Microsoft.Network/privateEndpoints@2023-11-01' = {
+  name: 'pe-${namePrefix}-search'
+  location: location
+  tags: tags
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'psc-${namePrefix}-search'
+        properties: {
+          privateLinkServiceId: searchServiceId
+          groupIds: ['searchService']
+        }
+      }
+    ]
+  }
+}
+
+resource searchDnsGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-11-01' = {
+  parent: searchPe
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'search-dns'
+        properties: {
+          privateDnsZoneId: privateDnsZoneIds.search
         }
       }
     ]

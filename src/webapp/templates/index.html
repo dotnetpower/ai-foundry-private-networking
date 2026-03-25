@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Foundry RAG Chat</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+    <div class="layout">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1>📚 AI Foundry RAG Chat</h1>
+            <p class="subtitle">Azure Search + OpenAI — 내부 문서 기반 Q&amp;A</p>
+        </header>
+
+        <!-- 채팅 영역 -->
+        <main class="chat-container" id="chatContainer">
+            <div class="welcome-message" id="welcomeMessage">
+                <h2>무엇이든 물어보세요</h2>
+                <p>내부 문서를 기반으로 답변합니다. 소스 파일을 인용하여 정확한 정보를 제공합니다.</p>
+                <div class="example-questions">
+                    <button class="example-btn" onclick="askExample(this)">What does the PerksPlus program cover?</button>
+                    <button class="example-btn" onclick="askExample(this)">치과 혜택은 어떤 것들이 있나요?</button>
+                    <button class="example-btn" onclick="askExample(this)">What is the deductible for Northwind Health Plus?</button>
+                </div>
+            </div>
+            <div id="messages"></div>
+        </main>
+
+        <!-- 입력 영역 -->
+        <footer class="input-area">
+            <div class="input-wrapper">
+                <textarea id="userInput" placeholder="질문을 입력하세요..." rows="1"
+                          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+                <button id="sendBtn" onclick="sendMessage()" title="전송">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+            <button class="clear-btn" onclick="clearChat()">대화 초기화</button>
+        </footer>
+    </div>
+
+    <script src="/static/chat.js"></script>
+</body>
+</html>

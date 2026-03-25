@@ -150,6 +150,7 @@ var privateDnsZoneNames = [
   'privatelink.vaultcore.azure.net'
   'privatelink.api.azureml.ms'
   'privatelink.notebooks.azure.net'
+  'privatelink.search.windows.net'
 ]
 
 resource privateDnsZones 'Microsoft.Network/privateDnsZones@2020-06-01' = [for name in privateDnsZoneNames: {
@@ -225,4 +226,5 @@ output privateDnsZoneIds object = {
   keyVault: privateDnsZones[4].id
   azureml: privateDnsZones[5].id
   notebooks: privateDnsZones[6].id
+  search: privateDnsZones[7].id
 }
