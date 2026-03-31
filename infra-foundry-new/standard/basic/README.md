@@ -180,6 +180,8 @@ az deployment sub create \
 
 ## Jumpbox 옵션
 
+> **📌 Note**: Jumpbox는 **Private Networking 환경에서 고객의 온프레미스 PC 환경을 재현(시뮬레이션)** 하기 위해 구성합니다. 실제 프로덕션에서는 ExpressRoute, VPN Gateway 등으로 대체됩니다.
+
 VNet 내부 리소스에 접근하려면 Jumpbox가 필요합니다.
 
 ```bash

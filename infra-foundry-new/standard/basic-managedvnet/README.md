@@ -117,6 +117,8 @@ az deployment sub create \
 
 ### 데이터 플레인 확인 (Jumpbox 필요)
 
+> **📌 Note**: Jumpbox는 **Private Networking 환경에서 고객의 온프레미스 PC 환경을 재현(시뮬레이션)** 하기 위해 구성합니다. 실제 프로덕션에서는 ExpressRoute, VPN Gateway 등으로 대체됩니다.
+
 `publicNetworkAccess: Disabled`인 리소스의 데이터를 확인하려면 Jumpbox에 RDP 접속 후:
 - `portal.azure.com` → AI Search 인덱스 조회, Cosmos DB 문서 탐색, Storage Blob 목록
 - PE를 통한 Private DNS 해석으로 Private IP로 접근
