@@ -158,6 +158,9 @@ resource storageConnection 'Microsoft.CognitiveServices/accounts/projects/connec
 resource cosmosConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
   parent: foundryProject
   name: 'cosmos-connection'
+  dependsOn: [
+    storageConnection
+  ]
   properties: {
     category: 'CosmosDB'
     target: 'https://${cosmosAccountName}.documents.azure.com:443/'
@@ -174,6 +177,9 @@ resource cosmosConnection 'Microsoft.CognitiveServices/accounts/projects/connect
 resource searchConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
   parent: foundryProject
   name: 'search-connection'
+  dependsOn: [
+    cosmosConnection
+  ]
   properties: {
     category: 'CognitiveSearch'
     target: 'https://${searchServiceName}.search.windows.net'

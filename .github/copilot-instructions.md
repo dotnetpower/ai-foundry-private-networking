@@ -77,13 +77,20 @@ infra-foundry-classic/
 │   └── parameters/
 infra-foundry-new/
 ├── standard/                    # Standard Agent (Private Networking)
-│   ├── main.bicep               # 메인 배포 템플릿
-│   ├── networking/              # VNet, Subnet, NSG, Private DNS Zones
-│   ├── ai-foundry/              # Foundry Account, Project, Models, RBAC
-│   ├── dependent-resources/     # Storage, Cosmos DB, AI Search
-│   ├── private-endpoints/       # Private Endpoints, DNS Zone Groups
-│   ├── jumpbox/                 # Jumpbox VM, Bastion (선택)
-│   └── parameters/
+│   ├── basic-bicep/             # Bicep 버전
+│   │   ├── main.bicep           # 메인 배포 템플릿
+│   │   ├── networking/          # VNet, Subnet, NSG, Private DNS Zones
+│   │   ├── ai-foundry/          # Foundry Account, Project, Models, RBAC
+│   │   ├── dependent-resources/ # Storage, Cosmos DB, AI Search
+│   │   ├── private-endpoints/   # Private Endpoints, DNS Zone Groups
+│   │   ├── jumpbox/             # Jumpbox VM (선택)
+│   │   └── parameters/
+│   ├── basic-terraform/         # Terraform 버전
+│   │   ├── main.tf              # 메인 (provider, modules 조합)
+│   │   ├── variables.tf         # 입력 변수
+│   │   ├── outputs.tf           # 출력값
+│   │   ├── modules/             # networking, ai-foundry, dependent-resources, private-endpoints, capability-host, jumpbox
+│   │   └── environments/        # dev.tfvars, swc-test.tfvars, kc-test.tfvars
 ├── hosted/                      # Hosted Agent (Public Only)
 │   ├── main.bicep               # 메인 배포 템플릿
 │   ├── ai-foundry/              # Foundry Account, Project, Models, Capability Host
@@ -169,14 +176,25 @@ az deployment sub create --location koreacentral \
   --parameters hubVnetId="${HUB_VNET_ID}" adminPassword='<비밀번호>'
 ```
 
-### Standard Agent
+### Standard Agent (Bicep)
 ```bash
-cd infra-foundry-new/standard
+cd infra-foundry-new/standard/basic-bicep
 az deployment sub create --location swedencentral \
   --template-file main.bicep --parameters parameters/dev.bicepparam
 
 # Capability Host 구성 (Bicep 후속)
 ../../scripts/setup-capability-host.sh --resource-group <rg-name>
+```
+
+### Standard Agent (Terraform)
+```bash
+cd infra-foundry-new/standard/basic-terraform
+terraform init
+terraform plan -var-file="environments/dev.tfvars" -var="jumpbox_admin_password=<비밀번호>"
+terraform apply -var-file="environments/dev.tfvars" -var="jumpbox_admin_password=<비밀번호>"
+
+# 삭제
+terraform destroy -var-file="environments/dev.tfvars"
 ```
 
 ### Hosted Agent
