@@ -468,6 +468,61 @@ echo "  Project Capability Host 프로비저닝 대기..."
 sleep 60
 
 # =============================================================================
+# 6-2. 사용자 RBAC + AI Search MI RBAC + 의존 리소스 publicNetworkAccess
+# =============================================================================
+echo ""
+echo ">>> [6-2] 사용자 RBAC + AI Search MI RBAC + publicNetworkAccess 설정..."
+
+# 현재 로그인 사용자 RBAC (Foundry Portal 사용을 위해 필수)
+USER_OID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)
+if [[ -n "$USER_OID" ]]; then
+  echo "  로그인 사용자 RBAC 할당: $USER_OID"
+
+  # Storage
+  az role assignment create --assignee "$USER_OID" --role "Storage Blob Data Contributor" --scope "$STORAGE_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee "$USER_OID" --role "Storage File Data Privileged Contributor" --scope "$STORAGE_ID" -o none 2>/dev/null || true
+
+  # AI Search
+  az role assignment create --assignee "$USER_OID" --role "Search Index Data Contributor" --scope "$SEARCH_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee "$USER_OID" --role "Search Service Contributor" --scope "$SEARCH_ID" -o none 2>/dev/null || true
+
+  # AI Services (Cognitive Services)
+  az role assignment create --assignee "$USER_OID" --role "Cognitive Services OpenAI User" --scope "$ACCOUNT_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee "$USER_OID" --role "Cognitive Services OpenAI Contributor" --scope "$ACCOUNT_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee "$USER_OID" --role "Cognitive Services Contributor" --scope "$ACCOUNT_ID" -o none 2>/dev/null || true
+
+  echo "  ✅ 사용자 RBAC 할당 완료"
+fi
+
+# AI Search System Managed Identity → Storage, AI Services RBAC
+SEARCH_PRINCIPAL=$(az search service show --name "$SEARCH_NAME" --resource-group "$RG_NAME" --query "identity.principalId" -o tsv 2>/dev/null || true)
+if [[ -n "$SEARCH_PRINCIPAL" ]]; then
+  echo "  AI Search MI RBAC 할당: $SEARCH_PRINCIPAL"
+  az role assignment create --assignee-object-id "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --role "Storage Blob Data Reader" --scope "$STORAGE_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee-object-id "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --role "Storage Blob Data Contributor" --scope "$STORAGE_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee-object-id "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --role "Cognitive Services OpenAI User" --scope "$ACCOUNT_ID" -o none 2>/dev/null || true
+  az role assignment create --assignee-object-id "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --role "Cognitive Services Contributor" --scope "$ACCOUNT_ID" -o none 2>/dev/null || true
+  echo "  ✅ AI Search MI RBAC 할당 완료"
+fi
+
+# 의존 리소스 publicNetworkAccess 활성화 (Managed VNet PE Inactive 우회)
+# Cosmos DB: Agent Service가 public IP로 접근하므로 필수
+echo "  Cosmos DB publicNetworkAccess 활성화 + Azure 데이터센터 IP 허용..."
+az cosmosdb update --name "$COSMOS_NAME" --resource-group "$RG_NAME" \
+  --public-network-access ENABLED --ip-range-filter "0.0.0.0" -o none 2>/dev/null || true
+
+# AI Search: 포털에서 인덱스 관리를 위해 필수
+echo "  AI Search publicNetworkAccess 활성화..."
+az search service update --name "$SEARCH_NAME" --resource-group "$RG_NAME" \
+  --public-network-access enabled -o none 2>/dev/null || true
+
+echo "  ✅ 의존 리소스 publicNetworkAccess 설정 완료"
+
+# =============================================================================
 # 7. Application Gateway (Optional — 온프레미스 리소스 접근용)
 # =============================================================================
 if $DEPLOY_APPGW; then

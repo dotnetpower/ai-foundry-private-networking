@@ -166,11 +166,121 @@ az cognitiveservices account purge \
   --location swedencentral
 ```
 
+## 트러블슈팅
+
+### 1. Cosmos DB 403 Forbidden — Agent Service 방화벽 차단
+
+**증상**: Foundry Portal에서 Agent 로딩 시 `Error loading your agents. Response status code does not indicate success: Forbidden (403)` 오류. `Reason: Request originated from IP 51.12.148.189 through public internet. This is blocked by your Cosmos DB account firewall settings.`
+
+**원인**: Agent Service는 Managed VNet 내부 PE가 아닌 **public IP**로 Cosmos DB에 접근. Cosmos DB `publicNetworkAccess: Disabled`이면 차단됨.
+
+**해결**:
+```bash
+# Cosmos DB publicNetworkAccess 활성화 + Azure 데이터센터 IP 허용
+az cosmosdb update --name <cosmos-name> --resource-group <rg-name> \
+  --ip-range-filter "0.0.0.0" \
+  --public-network-access ENABLED
+```
+
+> `0.0.0.0`은 Azure 데이터센터 내부 IP를 모두 허용하는 특수 규칙입니다.
+
+### 2. AI Search "Sorry, you do not have permissions to view this resource"
+
+**증상**: Foundry Portal에서 AI Search 인덱스 연결 시 권한 오류.
+
+**원인**: 로그인한 사용자 계정에 AI Search RBAC이 없음 + `publicNetworkAccess: Disabled`로 포털 접근 차단.
+
+**해결**:
+```bash
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+SEARCH_ID=$(az search service show --name <search-name> --resource-group <rg-name> --query id -o tsv)
+
+# 사용자 RBAC
+az role assignment create --assignee "$USER_OID" --role "Search Index Data Contributor" --scope "$SEARCH_ID"
+az role assignment create --assignee "$USER_OID" --role "Search Service Contributor" --scope "$SEARCH_ID"
+
+# publicNetworkAccess 활성화 (포탈 접근용)
+az search service update --name <search-name> --resource-group <rg-name> --public-network-access enabled
+```
+
+### 3. Storage 권한 오류 — 사용자 RBAC 미할당
+
+**증상**: Foundry Portal에서 Storage 리소스 접근 시 권한 오류.
+
+**해결**:
+```bash
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+STORAGE_ID=$(az storage account show --name <storage-name> --resource-group <rg-name> --query id -o tsv)
+
+az role assignment create --assignee "$USER_OID" --role "Storage Blob Data Contributor" --scope "$STORAGE_ID"
+az role assignment create --assignee "$USER_OID" --role "Storage File Data Privileged Contributor" --scope "$STORAGE_ID"
+```
+
+### 4. "API key provided for endpoint is invalid or has been revoked"
+
+**증상**: Foundry Portal에서 AI Search 인덱스 생성 시 `The API key provided for endpoint 'https://cog-xxx.openai.azure.com/' is invalid or has been revoked.`
+
+**원인**: AI Services 계정의 `disableLocalAuth: true` — API Key 인증이 비활성화되어 있음. Foundry Portal 인덱스 생성 기능이 내부적으로 API Key를 사용.
+
+**해결**:
+```bash
+# disableLocalAuth 해제 (Azure Policy가 차단할 수 있음)
+az cognitiveservices account update --name <account-name> --resource-group <rg-name> \
+  --custom-domain <account-name> --api-properties "{\"disableLocalAuth\":false}"
+```
+
+> ⚠️ Azure Policy에 의해 `disableLocalAuth: false` 전환이 차단될 수 있습니다. 이 경우 Policy 예외를 요청하거나, RBAC 기반(Managed Identity) 인증만 사용하세요.
+
+### 5. AI Search System MI — Storage/AI Services RBAC 부재
+
+**증상**: AI Search가 인덱싱 시 Storage Blob 또는 AI Services(임베딩)에 접근 실패.
+
+**해결**:
+```bash
+SEARCH_PRINCIPAL=$(az search service show --name <search-name> --resource-group <rg-name> --query "identity.principalId" -o tsv)
+STORAGE_ID=$(az storage account show --name <storage-name> --resource-group <rg-name> --query id -o tsv)
+ACCOUNT_ID=$(az cognitiveservices account show --name <account-name> --resource-group <rg-name> --query id -o tsv)
+
+# AI Search MI → Storage
+az role assignment create --assignee "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+  --role "Storage Blob Data Reader" --scope "$STORAGE_ID"
+
+# AI Search MI → AI Services (임베딩 모델용)
+az role assignment create --assignee "$SEARCH_PRINCIPAL" --assignee-principal-type ServicePrincipal \
+  --role "Cognitive Services OpenAI User" --scope "$ACCOUNT_ID"
+```
+
+### 6. Managed VNet PE가 Inactive 상태로 유지
+
+**증상**: `batchOutboundRules` API 호출은 Succeeded이지만, Outbound Rules의 PE 상태가 `Inactive`로 유지.
+
+**원인**: Preview 한계 — Managed VNet PE가 실제로 프로비저닝되지 않음. `provisionManagedNetwork` 액션을 실행해도 PE 상태 변화 없음.
+
+**영향**: Agent Service가 Managed VNet PE를 통해 Storage/Cosmos/Search에 접근할 수 없음 → 의존 리소스의 `publicNetworkAccess`를 Enabled로 전환하여 우회해야 함.
+
+**우회**:
+```bash
+# 의존 리소스 publicNetworkAccess 활성화
+az cosmosdb update --name <cosmos-name> --resource-group <rg-name> \
+  --public-network-access ENABLED --ip-range-filter "0.0.0.0"
+
+az search service update --name <search-name> --resource-group <rg-name> \
+  --public-network-access enabled
+
+az storage account update --name <storage-name> --resource-group <rg-name> \
+  --public-network-access Enabled
+```
+
+> 이 우회 방법은 E2E Private Networking을 포기하는 것입니다. 완전한 Private Networking이 필요하면 [basic-bicep/](../basic-bicep/) (BYO VNet) 방식을 사용하세요.
+
 ## 제약 사항
 
 > ⚠️ **E2E Private Networking 불가** — 공식 `sample_mvnet.json`에 "There is no e2e secured set-up with this template"로 명시. 완전한 private networking이 필요하면 [basic/](../basic/) (BYO VNet) 방식을 사용하세요.
 
 - **Account `publicNetworkAccess: Enabled` 필수** — Agent Service가 Account 컨트롤 플레인을 통해 동작하므로 Disabled로 전환 불가. 데이터 플레인(Storage/Cosmos/Search)만 private
+- **의존 리소스도 `publicNetworkAccess: Enabled` 필요** — Managed VNet PE가 Inactive 상태로 유지되므로, Cosmos DB/AI Search/Storage 모두 public 접근을 허용해야 Agent Service가 동작함
+- **사용자 RBAC 별도 할당 필요** — Bicep/스크립트가 시스템 MI만 할당. Foundry Portal 사용을 위해 로그인 사용자에게 Storage, AI Search, AI Services RBAC 수동 할당 필요
+- **AI Search MI RBAC 필요** — AI Search 인덱서 사용 시 Search MI에 Storage Blob Data Reader, Cognitive Services OpenAI User 역할 할당 필요
 - **2단계 배포 필수** — Bicep으로 Managed VNet 구조 선언 후, `batchOutboundRules` CLI를 별도 실행해야 Managed VNet PE가 활성화됨 (Bicep만으로는 `Inactive` 상태 유지)
 - **Preview** — GA 전까지 API/동작이 변경될 수 있음
 - **Feature 등록 필요** — `AI.ManagedVnetPreview` 승인 필요 (수 시간 소요)

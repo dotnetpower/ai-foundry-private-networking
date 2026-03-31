@@ -154,6 +154,12 @@ scripts/
 | `Cosmos DB Forbidden 403 / 5301` | Cosmos DB Operator는 관리 플레인만 커버 | `Cosmos DB Built-in Data Contributor` (데이터 플레인 RBAC, ID: `00000000-0000-0000-0000-000000000002`) 추가 할당 필수 |
 | `Windows VM computerName 15자 초과` | `az vm create` 시 VM name이 computerName으로 사용됨 | `--computer-name` 파라미터로 15자 이내 이름 명시 |
 | `Managed VNet Cosmos DB 403 Forbidden` | Account `publicNetworkAccess: Disabled` + Managed VNet PE `Inactive` | Account `publicNetworkAccess: Enabled` 필수 + `batchOutboundRules` CLI로 PE 활성화 |
+| `Managed VNet PE Inactive 유지` | `batchOutboundRules` Succeeded이나 PE 미프로비저닝 (Preview 한계) | 의존 리소스(Cosmos/Search/Storage) `publicNetworkAccess: Enabled` 전환하여 우회 |
+| `Cosmos DB 403 — Agent Service IP 차단` | Agent Service가 public IP로 Cosmos DB 접근 + 방화벽 차단 | `az cosmosdb update --public-network-access ENABLED --ip-range-filter "0.0.0.0"` |
+| `AI Search 권한 오류 — "Sorry, you do not have permissions"` | 로그인 사용자에 AI Search RBAC 미할당 + `publicNetworkAccess: Disabled` | 사용자에 Search Index Data Contributor/Search Service Contributor 할당 + `publicNetworkAccess: enabled` |
+| `Storage 권한 오류` | 로그인 사용자에 Storage RBAC 미할당 | 사용자에 Storage Blob Data Contributor + Storage File Data Privileged Contributor 할당 |
+| `API key invalid or revoked` | `disableLocalAuth: true` — Foundry Portal 인덱스 생성이 API Key 사용 | `disableLocalAuth: false` 전환 (Azure Policy 차단 가능) |
+| `AI Search 인덱서 실패 — Storage/AI Services 접근 불가` | AI Search System MI에 Storage/AI Services RBAC 미할당 | Search MI에 Storage Blob Data Reader + Cognitive Services OpenAI User 할당 |
 
 
 ## 배포 명령어
