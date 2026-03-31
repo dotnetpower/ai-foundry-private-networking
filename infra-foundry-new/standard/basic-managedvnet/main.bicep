@@ -52,6 +52,9 @@ param jumpboxAdminUsername string = 'azureuser'
 @secure()
 param jumpboxAdminPassword string = ''
 
+@description('RDP 접속을 허용할 소스 IP (CIDR). 예: 61.80.8.142/32')
+param allowedRdpSourceIp string = '*'
+
 @description('Tags to apply to all resources')
 param tags object = {
   Environment: environmentName
@@ -105,6 +108,7 @@ module jumpboxNetworking 'jumpbox/networking.bicep' = if (deployJumpbox) {
     jumpboxSubnetAddressPrefix: jumpboxSubnetAddressPrefix
     customerVnetId: networking.outputs.vnetId
     customerVnetName: networking.outputs.vnetName
+    allowedRdpSourceIp: allowedRdpSourceIp
     tags: tags
   }
 }

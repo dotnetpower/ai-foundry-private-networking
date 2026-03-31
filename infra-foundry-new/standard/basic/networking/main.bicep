@@ -32,6 +32,9 @@ param hubVnetResourceGroup string = ''
 @description('Hub VNet name')
 param hubVnetName string = ''
 
+@description('RDP 접속을 허용할 소스 IP (CIDR)')
+param allowedRdpSourceIp string = '*'
+
 @description('Tags to apply to all resources')
 param tags object = {}
 
@@ -126,7 +129,7 @@ resource nsgJumpbox 'Microsoft.Network/networkSecurityGroups@2023-11-01' = if (d
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '3389'
-          sourceAddressPrefix: 'VirtualNetwork'
+          sourceAddressPrefix: allowedRdpSourceIp
           destinationAddressPrefix: '*'
         }
       }

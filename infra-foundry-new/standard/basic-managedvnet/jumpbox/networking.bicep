@@ -23,6 +23,9 @@ param customerVnetId string
 @description('Customer VNet name (피어링 대상)')
 param customerVnetName string
 
+@description('RDP 접속을 허용할 소스 IP (CIDR)')
+param allowedRdpSourceIp string = '*'
+
 @description('Tags')
 param tags object = {}
 
@@ -45,7 +48,7 @@ resource nsgJumpbox 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
           protocol: 'Tcp'
           sourcePortRange: '*'
           destinationPortRange: '3389'
-          sourceAddressPrefix: 'VirtualNetwork'
+          sourceAddressPrefix: allowedRdpSourceIp
           destinationAddressPrefix: '*'
         }
       }
