@@ -15,6 +15,7 @@ set -euo pipefail
 LOCATION="swedencentral"
 ENV_NAME="dev"
 DEPLOY_JUMPBOX=false
+DEPLOY_APPGW=false
 JUMPBOX_ADMIN_USER="azureuser"
 JUMPBOX_ADMIN_PASSWORD=""
 
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
     --jumpbox) DEPLOY_JUMPBOX=true; shift ;;
     --jumpbox-password) JUMPBOX_ADMIN_PASSWORD="$2"; shift 2 ;;
     --jumpbox-user) JUMPBOX_ADMIN_USER="$2"; shift 2 ;;
+    --appgw) DEPLOY_APPGW=true; shift ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
@@ -50,6 +52,11 @@ JUMPBOX_VNET_PREFIX="10.2.0.0/16"
 JUMPBOX_SUBNET_NAME="snet-jumpbox"
 JUMPBOX_SUBNET_PREFIX="10.2.0.0/24"
 
+# Application Gateway
+APPGW_SUBNET_NAME="snet-appgateway"
+APPGW_SUBNET_PREFIX="10.1.1.0/24"
+APPGW_NAME="appgw-${NAME_PREFIX}"
+
 TAGS="Environment=${ENV_NAME} Project=AI-Foundry-ManagedVNet ManagedBy=AzCLI"
 
 echo "============================================="
@@ -60,6 +67,7 @@ echo " Environment: ${ENV_NAME}"
 echo " RG:          ${RG_NAME}"
 echo " Suffix:      ${SUFFIX}"
 echo " Jumpbox:     ${DEPLOY_JUMPBOX}"
+echo " App Gateway: ${DEPLOY_APPGW}"
 echo "============================================="
 
 # =============================================================================
@@ -118,6 +126,14 @@ az network vnet subnet create --name "$PE_SUBNET_NAME" \
   --address-prefixes "$PE_SUBNET_PREFIX" \
   --network-security-group "$NSG_PE_ID" \
   --private-endpoint-network-policies Disabled -o none
+
+# Application Gateway 서브넷 (선택)
+if $DEPLOY_APPGW; then
+  az network vnet subnet create --name "$APPGW_SUBNET_NAME" \
+    --resource-group "$RG_NAME" --vnet-name "$CUSTOMER_VNET_NAME" \
+    --address-prefixes "$APPGW_SUBNET_PREFIX" \
+    --private-endpoint-network-policies Disabled -o none
+fi
 
 CUSTOMER_VNET_ID=$(az network vnet show --name "$CUSTOMER_VNET_NAME" \
   --resource-group "$RG_NAME" --query id -o tsv)
@@ -452,11 +468,50 @@ echo "  Project Capability Host 프로비저닝 대기..."
 sleep 60
 
 # =============================================================================
-# 7. Jumpbox VNet + Peering + DNS Links + VM (Optional)
+# 7. Application Gateway (Optional — 온프레미스 리소스 접근용)
+# =============================================================================
+if $DEPLOY_APPGW; then
+  echo ""
+  echo ">>> [7] Application Gateway 배포..."
+
+  APPGW_SUBNET_ID=$(az network vnet subnet show --name "$APPGW_SUBNET_NAME" \
+    --resource-group "$RG_NAME" --vnet-name "$CUSTOMER_VNET_NAME" --query id -o tsv)
+
+  # Public IP
+  az network public-ip create --name "pip-${NAME_PREFIX}-appgw" \
+    --resource-group "$RG_NAME" --location "$LOCATION" \
+    --sku Standard --allocation-method Static --version IPv4 --tags $TAGS -o none
+
+  # Application Gateway
+  az network application-gateway create --name "$APPGW_NAME" \
+    --resource-group "$RG_NAME" --location "$LOCATION" \
+    --sku Standard_v2 --capacity 1 \
+    --vnet-name "$CUSTOMER_VNET_NAME" --subnet "$APPGW_SUBNET_NAME" \
+    --public-ip-address "pip-${NAME_PREFIX}-appgw" \
+    --frontend-port 80 --http-settings-port 443 --http-settings-protocol Https \
+    --private-link-ip-configuration "[{name:privatelink-ipconfig,subnet:{id:${APPGW_SUBNET_ID}},primary:true}]" \
+    --tags $TAGS -o none
+
+  APPGW_ID=$(az network application-gateway show --name "$APPGW_NAME" \
+    --resource-group "$RG_NAME" --query id -o tsv)
+
+  echo "  ✅ Application Gateway 배포 완료: ${APPGW_NAME}"
+  echo ""
+  echo "  ⚠️  후속 작업 필요:"
+  echo "  1. Azure Portal > App Gateway > Backend pools > 온프레미스 IP/FQDN 추가"
+  echo "  2. Managed VNet outbound rule 추가:"
+  echo "     az rest --method PUT \\"
+  echo "       --url \"https://management.azure.com\${ACCOUNT_ID}/managedNetworks/default/outboundRules/appgw-rule?api-version=2025-10-01-preview\" \\"
+  echo "       --body '{\"properties\":{\"type\":\"PrivateEndpoint\",\"destination\":{\"serviceResourceId\":\"${APPGW_ID}\",\"subresourceTarget\":\"appGateway\"},\"category\":\"UserDefined\"}}'"
+  echo "  3. batchOutboundRules 재실행으로 PE 활성화"
+fi
+
+# =============================================================================
+# 8. Jumpbox VNet + Peering + DNS Links + VM (Optional)
 # =============================================================================
 if $DEPLOY_JUMPBOX; then
   echo ""
-  echo ">>> [7/7] Jumpbox VNet + Peering + VM..."
+  echo ">>> [8] Jumpbox VNet + Peering + VM..."
 
   if [[ -z "$JUMPBOX_ADMIN_PASSWORD" ]]; then
     echo "ERROR: --jumpbox-password 파라미터가 필요합니다."
@@ -561,6 +616,9 @@ echo " AI Search:        ${SEARCH_NAME}"
 if $DEPLOY_JUMPBOX; then
   echo " Jumpbox VNet:     ${JUMPBOX_VNET_NAME} (${JUMPBOX_VNET_PREFIX})"
   echo " Jumpbox IP:       ${JUMPBOX_PIP}"
+fi
+if $DEPLOY_APPGW; then
+  echo " App Gateway:      ${APPGW_NAME}"
 fi
 echo ""
 echo " Foundry Portal:   https://ai.azure.com"

@@ -17,6 +17,12 @@ param vnetAddressPrefix string = '10.1.0.0/16'
 @description('Private endpoint subnet address prefix')
 param privateEndpointSubnetAddressPrefix string = '10.1.0.0/24'
 
+@description('Deploy Application Gateway subnet')
+param deployAppGatewaySubnet bool = false
+
+@description('Application Gateway subnet address prefix')
+param appGatewaySubnetAddressPrefix string = '10.1.1.0/24'
+
 @description('Tags')
 param tags object = {}
 
@@ -74,7 +80,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
         vnetAddressPrefix
       ]
     }
-    subnets: [
+    subnets: concat([
       {
         name: 'snet-privateendpoints'
         properties: {
@@ -85,7 +91,15 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
-    ]
+    ], deployAppGatewaySubnet ? [
+      {
+        name: 'snet-appgateway'
+        properties: {
+          addressPrefix: appGatewaySubnetAddressPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
+    ] : [])
   }
 }
 
@@ -129,6 +143,7 @@ resource dnsZoneLinks 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@202
 output vnetId string = vnet.id
 output vnetName string = vnet.name
 output privateEndpointSubnetId string = vnet.properties.subnets[0].id
+output appGatewaySubnetId string = deployAppGatewaySubnet ? vnet.properties.subnets[1].id : ''
 
 output privateDnsZoneIds object = {
   cognitiveservices: dnsZones[0].id

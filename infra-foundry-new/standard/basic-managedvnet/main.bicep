@@ -55,6 +55,12 @@ param jumpboxAdminPassword string = ''
 @description('RDP 접속을 허용할 소스 IP (CIDR). 예: 61.80.8.142/32')
 param allowedRdpSourceIp string = '*'
 
+@description('Deploy Application Gateway (온프레미스 리소스 접근용)')
+param deployAppGateway bool = false
+
+@description('Application Gateway subnet address prefix')
+param appGatewaySubnetAddressPrefix string = '10.1.1.0/24'
+
 @description('Tags to apply to all resources')
 param tags object = {
   Environment: environmentName
@@ -90,8 +96,28 @@ module networking 'networking/main.bicep' = {
     namePrefix: namePrefix
     vnetAddressPrefix: customerVnetAddressPrefix
     privateEndpointSubnetAddressPrefix: privateEndpointSubnetAddressPrefix
+    deployAppGatewaySubnet: deployAppGateway
+    appGatewaySubnetAddressPrefix: appGatewaySubnetAddressPrefix
     tags: tags
   }
+}
+
+// =============================================================================
+// Application Gateway (선택 — 온프레미스 리소스 접근용)
+// =============================================================================
+
+module appGateway 'application-gateway/main.bicep' = if (deployAppGateway) {
+  scope: rg
+  name: 'appgateway-deployment'
+  params: {
+    location: location
+    namePrefix: namePrefix
+    appGatewaySubnetId: networking.outputs.appGatewaySubnetId
+    tags: tags
+  }
+  dependsOn: [
+    networking
+  ]
 }
 
 // =============================================================================
@@ -273,3 +299,5 @@ output searchServiceName string = dependentResources.outputs.searchServiceName
 
 output jumpboxVnetId string = deployJumpbox ? jumpboxNetworking!.outputs.jumpboxVnetId : 'not-deployed'
 output windowsJumpboxPublicIp string = deployJumpbox ? jumpbox!.outputs.windowsVmPublicIp : 'not-deployed'
+output appGatewayId string = deployAppGateway ? appGateway!.outputs.appGatewayId : 'not-deployed'
+output appGatewayName string = deployAppGateway ? appGateway!.outputs.appGatewayName : 'not-deployed'

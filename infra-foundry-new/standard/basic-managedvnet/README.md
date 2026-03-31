@@ -70,6 +70,7 @@ Azure가 Agent용 VNet/PE를 **자동 관리** (`useMicrosoftManagedNetwork: tru
 | **Jumpbox VNet** (선택) | VNet (10.2.0.0/16), Jumpbox 서브넷, NSG | Customer VNet과 피어링 |
 | **VNet Peering** (선택) | Customer ↔ Jumpbox (양방향) | Jumpbox에서 PE 접근 |
 | **Jumpbox** (선택) | Windows VM + Public IP | RDP → 피어링 → PE → 데이터 플레인 |
+| **App Gateway** (선택) | Application Gateway v2 | 온프레미스 리소스 접근용 |
 | **RBAC** | 13개 역할 할당 | basic과 동일 |
 
 ## RBAC 역할 할당 (13개)
@@ -105,9 +106,29 @@ az deployment sub create \
   --parameters parameters/dev.bicepparam \
   --parameters deployJumpbox=true \
                jumpboxAdminPassword='YourP@ssw0rd!'
+
+# Application Gateway 포함 배포 (온프레미스 연동)
+az deployment sub create \
+  --location swedencentral \
+  --template-file main.bicep \
+  --parameters parameters/dev.bicepparam \
+  --parameters deployAppGateway=true
 ```
 
 배포 시간: 약 15-20분
+
+### Application Gateway 후속 작업
+
+Application Gateway를 배포한 경우, 다음 후속 작업이 필요합니다:
+
+1. **Backend Pool 구성** — Azure Portal > Application Gateway > Backend pools > 온프레미스 리소스 IP/FQDN 추가
+2. **Managed VNet outbound rule 추가** — App Gateway에 대한 PE를 Managed VNet에 등록:
+   ```bash
+   az rest --method PUT \
+     --url "https://management.azure.com${ACCOUNT_ID}/managedNetworks/default/outboundRules/appgw-rule?api-version=2025-10-01-preview" \
+     --body '{"properties":{"type":"PrivateEndpoint","destination":{"serviceResourceId":"<APP_GW_RESOURCE_ID>","subresourceTarget":"appGateway"},"category":"UserDefined"}}'
+   ```
+3. **batchOutboundRules 재실행** — 새 outbound rule을 포함하여 PE 활성화
 
 ## 배포 후 동작 확인
 
