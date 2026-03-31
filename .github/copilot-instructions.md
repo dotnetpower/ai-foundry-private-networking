@@ -111,7 +111,13 @@ scripts/
 - **Account API 버전**: `2025-04-01-preview`
 - **publicNetworkAccess**: `Disabled`
 - **Agent 서브넷 위임**: `Microsoft.App/environments`
-- **Capability Host**: Bicep 불가 → `scripts/setup-capability-host.sh` 사용
+- **Capability Host**: Bicep으로 배포 (`ai-foundry/capability-host.bicep`)
+  - Account: `networkInjections` (scenario: agent, subnetArmId)
+  - Project: `capabilityHosts` 리소스 (storageConnections, threadStorageConnections, vectorStoreConnections)
+- **서브넷 리전 제한**:
+  - Class B/C (`172.16.0.0/12`, `192.168.0.0/16`): 모든 Agent Service 리전에서 GA
+  - Class A (`10.0.0.0/8`): 19개 리전만 GA (Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West Europe, West US, West US 3)
+  - 기본 템플릿은 `10.0.0.0/16` 사용 → Class A 지원 19개 리전에서 배포 가능
 
 ### Hosted Agent 전용
 - **Account API 버전**: `2025-04-01-preview`
@@ -131,6 +137,8 @@ scripts/
 | `AcrPullWithMSIFailed` | ACR RBAC 미설정 | Project MI에 AcrPull 역할 할당 |
 | `Hub Managed VNet PE 프로비저닝 실패` | 종속 리소스 `publicNetworkAccess: Disabled` | 초기 배포 시 `Enabled`, PE 완료 후 `Disabled` 전환 |
 | `Classic Hub + preview API 호환성` | OpenAI `2025-04-01-preview` 사용 | GA 버전 `2024-10-01` 사용 |
+| `Cosmos DB Forbidden 403 / 5301` | Cosmos DB Operator는 관리 플레인만 커버 | `Cosmos DB Built-in Data Contributor` (데이터 플레인 RBAC, ID: `00000000-0000-0000-0000-000000000002`) 추가 할당 필수 |
+| `Windows VM computerName 15자 초과` | `az vm create` 시 VM name이 computerName으로 사용됨 | `--computer-name` 파라미터로 15자 이내 이름 명시 |
 
 
 ## 배포 명령어

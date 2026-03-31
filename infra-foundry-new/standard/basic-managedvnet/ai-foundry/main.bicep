@@ -1,21 +1,17 @@
 // =============================================================================
-// AI Foundry Module - Foundry Account, Project, Model Deployments
+// AI Foundry Module - Managed VNet (Preview)
+// =============================================================================
+// useMicrosoftManagedNetwork: true → Azure가 VNet/PE/DNS를 자동 관리
 // =============================================================================
 
 @description('Location for all resources')
 param location string
-
-@description('Resource name prefix')
-param namePrefix string
 
 @description('Unique suffix for globally unique names')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
 
 @description('Tags to apply to all resources')
 param tags object = {}
-
-@description('Agent subnet ID for capability host')
-param agentSubnetId string
 
 @description('Storage Account resource ID')
 param storageAccountId string
@@ -39,17 +35,7 @@ param searchServiceName string
 var shortSuffix = take(uniqueSuffix, 8)
 
 // =============================================================================
-// User Assigned Managed Identity
-// =============================================================================
-
-resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-${shortSuffix}'
-  location: location
-  tags: tags
-}
-
-// =============================================================================
-// Foundry Account (kind: AIServices)
+// Foundry Account (kind: AIServices, Managed VNet)
 // =============================================================================
 
 resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
@@ -76,8 +62,7 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview
     networkInjections: [
       {
         scenario: 'agent'
-        subnetArmId: agentSubnetId
-        useMicrosoftManagedNetwork: false
+        useMicrosoftManagedNetwork: true
       }
     ]
   }
@@ -105,31 +90,7 @@ resource gpt4oDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-
 }
 
 // =============================================================================
-// GPT-5.2 Model Deployment
-// =============================================================================
-
-resource gpt52Deployment 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = {
-  parent: foundryAccount
-  name: 'gpt-5.2'
-  sku: {
-    name: 'GlobalStandard'
-    capacity: 10
-  }
-  properties: {
-    model: {
-      format: 'OpenAI'
-      name: 'gpt-5.2'
-      version: '2025-12-11'
-    }
-    raiPolicyName: 'Microsoft.DefaultV2'
-  }
-  dependsOn: [
-    gpt4oDeployment
-  ]
-}
-
-// =============================================================================
-// Text Embedding Model Deployment (RAG용 text-embedding-3-large)
+// Text Embedding Model Deployment
 // =============================================================================
 
 resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = {
@@ -147,12 +108,12 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
     }
   }
   dependsOn: [
-    gpt52Deployment
+    gpt4oDeployment
   ]
 }
 
 // =============================================================================
-// Foundry Project (AI Hub in ML terms)
+// Foundry Project
 // =============================================================================
 
 resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = {
@@ -223,30 +184,16 @@ resource searchConnection 'Microsoft.CognitiveServices/accounts/projects/connect
   }
 }
 
-resource ragStorageConnection 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = {
-  parent: foundryProject
-  name: 'rag-storage-connection'
-  properties: {
-    category: 'AzureStorageAccount'
-    target: 'https://${storageAccountName}.blob.${environment().suffixes.storage}'
-    authType: 'AAD'
-    metadata: {
-      ApiType: 'azure'
-      AccountName: storageAccountName
-      ContainerName: 'rag-documents'
-      ResourceId: storageAccountId
-    }
-  }
-}
-
 // =============================================================================
-// RBAC Role Assignments (MS Official Sample Requirements)
+// RBAC Role Assignments
 // =============================================================================
 
 // --- Storage ---
-// Storage Blob Data Owner (Account + Project)
 var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
-resource storageOwnerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+
+resource storageOwnerAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountId, foundryAccount.id, storageBlobDataOwnerRoleId)
   scope: resourceGroup()
   properties: {
@@ -256,7 +203,7 @@ resource storageOwnerRoleAssignment 'Microsoft.Authorization/roleAssignments@202
   }
 }
 
-resource storageProjectOwnerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource storageOwnerProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountId, foundryProject.id, storageBlobDataOwnerRoleId)
   scope: resourceGroup()
   properties: {
@@ -266,9 +213,7 @@ resource storageProjectOwnerRoleAssignment 'Microsoft.Authorization/roleAssignme
   }
 }
 
-// Storage Blob Data Contributor (Account + Project)
-var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-resource storageBlobContributorAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource storageContributorAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountId, foundryAccount.id, storageBlobDataContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -278,7 +223,7 @@ resource storageBlobContributorAccount 'Microsoft.Authorization/roleAssignments@
   }
 }
 
-resource storageBlobContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource storageContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountId, foundryProject.id, storageBlobDataContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -288,9 +233,7 @@ resource storageBlobContributorProject 'Microsoft.Authorization/roleAssignments@
   }
 }
 
-// Storage Queue Data Contributor (Project - Azure Function tool 지원용)
-var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
-resource storageQueueContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource storageQueueProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccountId, foundryProject.id, storageQueueDataContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -301,9 +244,10 @@ resource storageQueueContributorProject 'Microsoft.Authorization/roleAssignments
 }
 
 // --- Cosmos DB ---
-// Cosmos DB Operator (관리 플레인, Account + Project)
 var cosmosDbOperatorRoleId = '230815da-be43-4aae-9cb4-875f7bd000aa'
-resource cosmosOperatorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+var cosmosBuiltinDataContributorId = '00000000-0000-0000-0000-000000000002'
+
+resource cosmosOperatorAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(cosmosAccountId, foundryAccount.id, cosmosDbOperatorRoleId)
   scope: resourceGroup()
   properties: {
@@ -313,7 +257,7 @@ resource cosmosOperatorRoleAssignment 'Microsoft.Authorization/roleAssignments@2
   }
 }
 
-resource cosmosProjectOperatorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource cosmosOperatorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(cosmosAccountId, foundryProject.id, cosmosDbOperatorRoleId)
   scope: resourceGroup()
   properties: {
@@ -323,14 +267,11 @@ resource cosmosProjectOperatorRoleAssignment 'Microsoft.Authorization/roleAssign
   }
 }
 
-// Cosmos DB Built-in Data Contributor (데이터 플레인 RBAC, Account + Project)
-var cosmosBuiltinDataContributorId = '00000000-0000-0000-0000-000000000002'
-
 resource cosmosAccountRef 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' existing = {
   name: cosmosAccountName
 }
 
-resource cosmosDataContributorAccount 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+resource cosmosDataAccount 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
   name: guid(cosmosAccountId, foundryAccount.id, cosmosBuiltinDataContributorId)
   parent: cosmosAccountRef
   properties: {
@@ -340,7 +281,7 @@ resource cosmosDataContributorAccount 'Microsoft.DocumentDB/databaseAccounts/sql
   }
 }
 
-resource cosmosDataContributorProject 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+resource cosmosDataProject 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
   name: guid(cosmosAccountId, foundryProject.id, cosmosBuiltinDataContributorId)
   parent: cosmosAccountRef
   properties: {
@@ -351,9 +292,10 @@ resource cosmosDataContributorProject 'Microsoft.DocumentDB/databaseAccounts/sql
 }
 
 // --- AI Search ---
-// Search Index Data Contributor (Account + Project)
 var searchIndexDataContributorRoleId = '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-resource searchDataRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+var searchServiceContributorRoleId = '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
+
+resource searchDataAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(searchServiceId, foundryAccount.id, searchIndexDataContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -363,7 +305,7 @@ resource searchDataRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-
   }
 }
 
-resource searchProjectDataRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource searchDataProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(searchServiceId, foundryProject.id, searchIndexDataContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -373,9 +315,7 @@ resource searchProjectDataRoleAssignment 'Microsoft.Authorization/roleAssignment
   }
 }
 
-// Search Service Contributor (Account + Project)
-var searchServiceContributorRoleId = '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
-resource searchServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource searchServiceAccount 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(searchServiceId, foundryAccount.id, searchServiceContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -385,7 +325,7 @@ resource searchServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@20
   }
 }
 
-resource searchProjectServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource searchServiceProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(searchServiceId, foundryProject.id, searchServiceContributorRoleId)
   scope: resourceGroup()
   properties: {
@@ -396,14 +336,47 @@ resource searchProjectServiceRoleAssignment 'Microsoft.Authorization/roleAssignm
 }
 
 // --- Cognitive Services ---
-// Cognitive Services OpenAI Contributor (Project - 모델 호출 권한)
 var cognitiveServicesOpenAIContributorRoleId = 'a001fd3d-188f-4b5d-821b-7da978bf7442'
-resource cogServicesContributorProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource cogServicesProject 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(foundryAccount.id, foundryProject.id, cognitiveServicesOpenAIContributorRoleId)
   scope: resourceGroup()
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIContributorRoleId)
     principalId: foundryProject.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// --- Azure AI Enterprise Network Connection Approver ---
+// Managed VNet에서 Outbound Rules (PE) 생성/승인에 필요
+var networkConnectionApproverRoleId = 'b556d68e-0be0-4f35-a333-ad7ee1ce17ea'
+
+resource networkApproverStorage 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccountId, foundryAccount.id, networkConnectionApproverRoleId)
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', networkConnectionApproverRoleId)
+    principalId: foundryAccount.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource networkApproverCosmos 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(cosmosAccountId, foundryAccount.id, networkConnectionApproverRoleId)
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', networkConnectionApproverRoleId)
+    principalId: foundryAccount.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource networkApproverSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(searchServiceId, foundryAccount.id, networkConnectionApproverRoleId)
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', networkConnectionApproverRoleId)
+    principalId: foundryAccount.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -419,14 +392,8 @@ output foundryAccountEndpoint string = foundryAccount.properties.endpoint
 output foundryProjectId string = foundryProject.id
 output foundryProjectName string = foundryProject.name
 
-output managedIdentityId string = managedIdentity.id
-output managedIdentityPrincipalId string = managedIdentity.properties.principalId
-output managedIdentityClientId string = managedIdentity.properties.clientId
-
-output systemAssignedPrincipalId string = foundryAccount.identity.principalId
 output projectPrincipalId string = foundryProject.identity.principalId
 
-// Connection names for Capability Host
 output storageConnectionName string = storageConnection.name
 output cosmosConnectionName string = cosmosConnection.name
 output searchConnectionName string = searchConnection.name

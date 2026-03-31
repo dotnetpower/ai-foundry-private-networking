@@ -18,21 +18,25 @@ param environmentName = 'dev'
 // Network Configuration
 // =============================================================================
 
-// VNet: 192.168.0.0/16 (65,536 addresses)
-param vnetAddressPrefix = '192.168.0.0/16'
+// VNet: 10.0.0.0/16 (65,536 addresses)
+// Class A (10.0.0.0/8) 지원 리전: Australia East, Brazil South, Canada East, East US, East US 2,
+// France Central, Germany West Central, Italy North, Japan East, South Africa North,
+// South Central US, South India, Spain Central, Sweden Central, UAE North, UK South,
+// West Europe, West US, West US 3
+param vnetAddressPrefix = '10.0.0.0/16'
 
-// Agent Subnet: 192.168.0.0/24 (256 addresses)
+// Agent Subnet: 10.0.0.0/24 (256 addresses)
 // - Microsoft.App/environments delegation required
 // - Hosts Foundry Agent runtime
-param agentSubnetAddressPrefix = '192.168.0.0/24'
+param agentSubnetAddressPrefix = '10.0.0.0/24'
 
-// Private Endpoint Subnet: 192.168.1.0/24 (256 addresses)
+// Private Endpoint Subnet: 10.0.1.0/24 (256 addresses)
 // - Hosts Private Endpoints for Foundry, Storage, Cosmos DB, AI Search
-param privateEndpointSubnetAddressPrefix = '192.168.1.0/24'
+param privateEndpointSubnetAddressPrefix = '10.0.1.0/24'
 
-// Jumpbox Subnet: 192.168.2.0/24 (256 addresses)
+// Jumpbox Subnet: 10.0.2.0/24 (256 addresses)
 // - Hosts Windows Jumpbox VM
-param jumpboxSubnetAddressPrefix = '192.168.2.0/24'
+param jumpboxSubnetAddressPrefix = '10.0.2.0/24'
 
 // =============================================================================
 // Hub-Spoke Configuration

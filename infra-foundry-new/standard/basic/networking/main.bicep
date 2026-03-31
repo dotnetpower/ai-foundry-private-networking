@@ -9,16 +9,16 @@ param location string
 param namePrefix string
 
 @description('VNet address prefix')
-param vnetAddressPrefix string = '192.168.0.0/16'
+param vnetAddressPrefix string = '10.0.0.0/16'
 
 @description('Agent subnet address prefix (requires Microsoft.App/environments delegation)')
-param agentSubnetAddressPrefix string = '192.168.0.0/24'
+param agentSubnetAddressPrefix string = '10.0.0.0/24'
 
 @description('Private endpoint subnet address prefix')
-param privateEndpointSubnetAddressPrefix string = '192.168.1.0/24'
+param privateEndpointSubnetAddressPrefix string = '10.0.1.0/24'
 
 @description('Jumpbox subnet address prefix')
-param jumpboxSubnetAddressPrefix string = '192.168.2.0/24'
+param jumpboxSubnetAddressPrefix string = '10.0.2.0/24'
 
 @description('Deploy jumpbox subnet')
 param deployJumpboxSubnet bool = false

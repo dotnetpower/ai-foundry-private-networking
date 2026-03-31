@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "5528683940307252111"
+      "templateHash": "2444802893832983803"
     }
   },
   "parameters": {
@@ -18,7 +18,7 @@
     },
     "resourceGroupName": {
       "type": "string",
-      "defaultValue": "rg-aif-new",
+      "defaultValue": "rg-aif-mvnet",
       "metadata": {
         "description": "Resource group name"
       }
@@ -35,53 +35,18 @@
         "description": "Environment name (dev, staging, prod)"
       }
     },
-    "vnetAddressPrefix": {
+    "customerVnetAddressPrefix": {
       "type": "string",
-      "defaultValue": "10.0.0.0/16",
+      "defaultValue": "10.1.0.0/16",
       "metadata": {
-        "description": "VNet address prefix. Class A (10.0.0.0/8) supported in: Australia East, Brazil South, Canada East, East US, East US 2, France Central, Germany West Central, Italy North, Japan East, South Africa North, South Central US, South India, Spain Central, Sweden Central, UAE North, UK South, West Europe, West US, West US 3. Class B/C (172.16.0.0/12, 192.168.0.0/16) supported in all Agent Service regions."
-      }
-    },
-    "agentSubnetAddressPrefix": {
-      "type": "string",
-      "defaultValue": "10.0.0.0/24",
-      "metadata": {
-        "description": "Agent subnet address prefix (Microsoft.App/environments delegation)"
+        "description": "Customer VNet address prefix (PE 전용)"
       }
     },
     "privateEndpointSubnetAddressPrefix": {
       "type": "string",
-      "defaultValue": "10.0.1.0/24",
+      "defaultValue": "10.1.0.0/24",
       "metadata": {
         "description": "Private endpoint subnet address prefix"
-      }
-    },
-    "jumpboxSubnetAddressPrefix": {
-      "type": "string",
-      "defaultValue": "10.0.2.0/24",
-      "metadata": {
-        "description": "Jumpbox subnet address prefix"
-      }
-    },
-    "hubVnetId": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Hub VNet resource ID for Hub-Spoke peering (empty = standalone VNet)"
-      }
-    },
-    "hubVnetResourceGroup": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Hub VNet resource group name"
-      }
-    },
-    "hubVnetName": {
-      "type": "string",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Hub VNet name"
       }
     },
     "deployJumpbox": {
@@ -89,6 +54,20 @@
       "defaultValue": false,
       "metadata": {
         "description": "Deploy Windows Jumpbox VM"
+      }
+    },
+    "jumpboxVnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.2.0.0/16",
+      "metadata": {
+        "description": "Jumpbox VNet address prefix (별도 VNet)"
+      }
+    },
+    "jumpboxSubnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.2.0.0/24",
+      "metadata": {
+        "description": "Jumpbox subnet address prefix"
       }
     },
     "jumpboxAdminUsername": {
@@ -109,9 +88,8 @@
       "type": "object",
       "defaultValue": {
         "Environment": "[parameters('environmentName')]",
-        "Project": "AI-Foundry-Private-Networking",
-        "ManagedBy": "Bicep",
-        "CreatedDate": "2026-03-17"
+        "Project": "AI-Foundry-ManagedVNet",
+        "ManagedBy": "Bicep"
       },
       "metadata": {
         "description": "Tags to apply to all resources"
@@ -119,7 +97,7 @@
     }
   },
   "variables": {
-    "namePrefix": "[format('aifoundry-{0}', parameters('environmentName'))]"
+    "namePrefix": "[format('aifmvnet-{0}', parameters('environmentName'))]"
   },
   "resources": [
     {
@@ -147,28 +125,10 @@
             "value": "[variables('namePrefix')]"
           },
           "vnetAddressPrefix": {
-            "value": "[parameters('vnetAddressPrefix')]"
-          },
-          "agentSubnetAddressPrefix": {
-            "value": "[parameters('agentSubnetAddressPrefix')]"
+            "value": "[parameters('customerVnetAddressPrefix')]"
           },
           "privateEndpointSubnetAddressPrefix": {
             "value": "[parameters('privateEndpointSubnetAddressPrefix')]"
-          },
-          "jumpboxSubnetAddressPrefix": {
-            "value": "[parameters('jumpboxSubnetAddressPrefix')]"
-          },
-          "deployJumpboxSubnet": {
-            "value": "[parameters('deployJumpbox')]"
-          },
-          "hubVnetId": {
-            "value": "[parameters('hubVnetId')]"
-          },
-          "hubVnetResourceGroup": {
-            "value": "[parameters('hubVnetResourceGroup')]"
-          },
-          "hubVnetName": {
-            "value": "[parameters('hubVnetName')]"
           },
           "tags": {
             "value": "[parameters('tags')]"
@@ -181,7 +141,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "11545313497830141335"
+              "templateHash": "17625489011277194045"
             }
           },
           "parameters": {
@@ -199,65 +159,23 @@
             },
             "vnetAddressPrefix": {
               "type": "string",
-              "defaultValue": "10.0.0.0/16",
+              "defaultValue": "10.1.0.0/16",
               "metadata": {
                 "description": "VNet address prefix"
               }
             },
-            "agentSubnetAddressPrefix": {
-              "type": "string",
-              "defaultValue": "10.0.0.0/24",
-              "metadata": {
-                "description": "Agent subnet address prefix (requires Microsoft.App/environments delegation)"
-              }
-            },
             "privateEndpointSubnetAddressPrefix": {
               "type": "string",
-              "defaultValue": "10.0.1.0/24",
+              "defaultValue": "10.1.0.0/24",
               "metadata": {
                 "description": "Private endpoint subnet address prefix"
-              }
-            },
-            "jumpboxSubnetAddressPrefix": {
-              "type": "string",
-              "defaultValue": "10.0.2.0/24",
-              "metadata": {
-                "description": "Jumpbox subnet address prefix"
-              }
-            },
-            "deployJumpboxSubnet": {
-              "type": "bool",
-              "defaultValue": false,
-              "metadata": {
-                "description": "Deploy jumpbox subnet"
-              }
-            },
-            "hubVnetId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Hub VNet resource ID for Hub-Spoke peering (empty = standalone VNet)"
-              }
-            },
-            "hubVnetResourceGroup": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Hub VNet resource group name"
-              }
-            },
-            "hubVnetName": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Hub VNet name"
               }
             },
             "tags": {
               "type": "object",
               "defaultValue": {},
               "metadata": {
-                "description": "Tags to apply to all resources"
+                "description": "Tags"
               }
             }
           },
@@ -273,43 +191,6 @@
             ]
           },
           "resources": [
-            {
-              "type": "Microsoft.Network/networkSecurityGroups",
-              "apiVersion": "2023-11-01",
-              "name": "[format('nsg-{0}-agent', parameters('namePrefix'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "securityRules": [
-                  {
-                    "name": "AllowHTTPSInbound",
-                    "properties": {
-                      "priority": 100,
-                      "direction": "Inbound",
-                      "access": "Allow",
-                      "protocol": "Tcp",
-                      "sourcePortRange": "*",
-                      "destinationPortRange": "443",
-                      "sourceAddressPrefix": "VirtualNetwork",
-                      "destinationAddressPrefix": "*"
-                    }
-                  },
-                  {
-                    "name": "DenyAllInbound",
-                    "properties": {
-                      "priority": 4096,
-                      "direction": "Inbound",
-                      "access": "Deny",
-                      "protocol": "*",
-                      "sourcePortRange": "*",
-                      "destinationPortRange": "*",
-                      "sourceAddressPrefix": "*",
-                      "destinationAddressPrefix": "*"
-                    }
-                  }
-                ]
-              }
-            },
             {
               "type": "Microsoft.Network/networkSecurityGroups",
               "apiVersion": "2023-11-01",
@@ -348,7 +229,192 @@
               }
             },
             {
-              "condition": "[parameters('deployJumpboxSubnet')]",
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-11-01",
+              "name": "[format('vnet-{0}', parameters('namePrefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-privateendpoints",
+                    "properties": {
+                      "addressPrefix": "[parameters('privateEndpointSubnetAddressPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))]"
+                      },
+                      "privateEndpointNetworkPolicies": "Disabled"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "dnsZones",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('privateDnsZones')[copyIndex()]]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "copy": {
+                "name": "dnsZoneLinks",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], format('link-{0}', parameters('namePrefix')))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[copyIndex()])]",
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "value": "[format('vnet-{0}', parameters('namePrefix'))]"
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[0].id]"
+            },
+            "privateDnsZoneIds": {
+              "type": "object",
+              "value": {
+                "cognitiveservices": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[0])]",
+                "openai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[1])]",
+                "servicesai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[2])]",
+                "search": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[3])]",
+                "cosmosdb": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[4])]",
+                "blob": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[5])]",
+                "file": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[6])]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployJumpbox')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "jumpbox-networking-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "vnetAddressPrefix": {
+            "value": "[parameters('jumpboxVnetAddressPrefix')]"
+          },
+          "jumpboxSubnetAddressPrefix": {
+            "value": "[parameters('jumpboxSubnetAddressPrefix')]"
+          },
+          "customerVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetId.value]"
+          },
+          "customerVnetName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetName.value]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "13851644802457084602"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for all resources"
+              }
+            },
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "10.2.0.0/16",
+              "metadata": {
+                "description": "Jumpbox VNet address prefix"
+              }
+            },
+            "jumpboxSubnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "10.2.0.0/24",
+              "metadata": {
+                "description": "Jumpbox subnet address prefix"
+              }
+            },
+            "customerVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Customer VNet resource ID (피어링 대상)"
+              }
+            },
+            "customerVnetName": {
+              "type": "string",
+              "metadata": {
+                "description": "Customer VNet name (피어링 대상)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags"
+              }
+            }
+          },
+          "resources": [
+            {
               "type": "Microsoft.Network/networkSecurityGroups",
               "apiVersion": "2023-11-01",
               "name": "[format('nsg-{0}-jumpbox', parameters('namePrefix'))]",
@@ -414,7 +480,7 @@
             {
               "type": "Microsoft.Network/virtualNetworks",
               "apiVersion": "2023-11-01",
-              "name": "[format('vnet-{0}', parameters('namePrefix'))]",
+              "name": "[format('vnet-{0}-jumpbox', parameters('namePrefix'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "properties": {
@@ -423,195 +489,153 @@
                     "[parameters('vnetAddressPrefix')]"
                   ]
                 },
-                "subnets": "[concat(createArray(createObject('name', 'snet-agent', 'properties', createObject('addressPrefix', parameters('agentSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-agent', parameters('namePrefix')))), 'delegations', createArray(createObject('name', 'delegation-app-environments', 'properties', createObject('serviceName', 'Microsoft.App/environments'))), 'privateEndpointNetworkPolicies', 'Disabled')), createObject('name', 'snet-privateendpoints', 'properties', createObject('addressPrefix', parameters('privateEndpointSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))), 'privateEndpointNetworkPolicies', 'Disabled'))), if(parameters('deployJumpboxSubnet'), createArray(createObject('name', 'snet-jumpbox', 'properties', createObject('addressPrefix', parameters('jumpboxSubnetAddressPrefix'), 'networkSecurityGroup', createObject('id', resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))), 'defaultOutboundAccess', false()))), createArray()))]"
+                "subnets": [
+                  {
+                    "name": "snet-jumpbox",
+                    "properties": {
+                      "addressPrefix": "[parameters('jumpboxSubnetAddressPrefix')]",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]"
+                      },
+                      "defaultOutboundAccess": false
+                    }
+                  }
+                ]
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-agent', parameters('namePrefix')))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]",
-                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-pe', parameters('namePrefix')))]"
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-jumpbox', parameters('namePrefix')))]"
               ]
             },
             {
-              "copy": {
-                "name": "dnsZones",
-                "count": "[length(variables('privateDnsZones'))]"
-              },
-              "type": "Microsoft.Network/privateDnsZones",
-              "apiVersion": "2020-06-01",
-              "name": "[variables('privateDnsZones')[copyIndex()]]",
-              "location": "global",
-              "tags": "[parameters('tags')]"
-            },
-            {
-              "copy": {
-                "name": "dnsZoneLinks",
-                "count": "[length(variables('privateDnsZones'))]"
-              },
-              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
-              "apiVersion": "2020-06-01",
-              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], format('link-{0}', parameters('namePrefix')))]",
-              "location": "global",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "registrationEnabled": false,
-                "virtualNetwork": {
-                  "id": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[copyIndex()])]",
-                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
-              ]
-            },
-            {
-              "copy": {
-                "name": "dnsZoneLinksHub",
-                "count": "[length(variables('privateDnsZones'))]"
-              },
-              "condition": "[not(empty(parameters('hubVnetId')))]",
-              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
-              "apiVersion": "2020-06-01",
-              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], 'link-hub')]",
-              "location": "global",
-              "tags": "[parameters('tags')]",
-              "properties": {
-                "registrationEnabled": false,
-                "virtualNetwork": {
-                  "id": "[parameters('hubVnetId')]"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[copyIndex()])]"
-              ]
-            },
-            {
-              "condition": "[not(empty(parameters('hubVnetId')))]",
               "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
               "apiVersion": "2023-11-01",
-              "name": "[format('{0}/{1}', format('vnet-{0}', parameters('namePrefix')), 'peer-spoke-to-hub')]",
+              "name": "[format('{0}/{1}', format('vnet-{0}-jumpbox', parameters('namePrefix')), 'peer-jumpbox-to-customer')]",
               "properties": {
                 "remoteVirtualNetwork": {
-                  "id": "[parameters('hubVnetId')]"
+                  "id": "[parameters('customerVnetId')]"
                 },
                 "allowVirtualNetworkAccess": true,
                 "allowForwardedTraffic": true,
                 "useRemoteGateways": false
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-jumpbox', parameters('namePrefix')))]"
               ]
             },
             {
-              "condition": "[not(empty(parameters('hubVnetId')))]",
-              "type": "Microsoft.Resources/deployments",
-              "apiVersion": "2025-04-01",
-              "name": "hub-to-spoke-peering",
-              "resourceGroup": "[parameters('hubVnetResourceGroup')]",
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', parameters('customerVnetName'), 'peer-customer-to-jumpbox')]",
               "properties": {
-                "expressionEvaluationOptions": {
-                  "scope": "inner"
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-jumpbox', parameters('namePrefix')))]"
                 },
-                "mode": "Incremental",
-                "parameters": {
-                  "hubVnetName": {
-                    "value": "[parameters('hubVnetName')]"
-                  },
-                  "remoteVnetId": {
-                    "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
-                  },
-                  "peeringName": {
-                    "value": "[format('peer-hub-to-{0}', parameters('namePrefix'))]"
-                  }
-                },
-                "template": {
-                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-                  "contentVersion": "1.0.0.0",
-                  "metadata": {
-                    "_generator": {
-                      "name": "bicep",
-                      "version": "0.41.2.15936",
-                      "templateHash": "8886008406390736012"
-                    }
-                  },
-                  "parameters": {
-                    "hubVnetName": {
-                      "type": "string",
-                      "metadata": {
-                        "description": "Hub VNet name"
-                      }
-                    },
-                    "remoteVnetId": {
-                      "type": "string",
-                      "metadata": {
-                        "description": "Remote (Spoke) VNet resource ID"
-                      }
-                    },
-                    "peeringName": {
-                      "type": "string",
-                      "metadata": {
-                        "description": "Peering name"
-                      }
-                    }
-                  },
-                  "resources": [
-                    {
-                      "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
-                      "apiVersion": "2023-11-01",
-                      "name": "[format('{0}/{1}', parameters('hubVnetName'), parameters('peeringName'))]",
-                      "properties": {
-                        "remoteVirtualNetwork": {
-                          "id": "[parameters('remoteVnetId')]"
-                        },
-                        "allowVirtualNetworkAccess": true,
-                        "allowForwardedTraffic": true,
-                        "allowGatewayTransit": true
-                      }
-                    }
-                  ]
-                }
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": true,
+                "allowGatewayTransit": false
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-jumpbox', parameters('namePrefix')))]"
               ]
             }
           ],
           "outputs": {
-            "vnetId": {
+            "jumpboxVnetId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix')))]"
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-jumpbox', parameters('namePrefix')))]"
             },
-            "vnetName": {
+            "jumpboxVnetName": {
               "type": "string",
-              "value": "[format('vnet-{0}', parameters('namePrefix'))]"
-            },
-            "agentSubnetId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[0].id]"
-            },
-            "privateEndpointSubnetId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[1].id]"
+              "value": "[format('vnet-{0}-jumpbox', parameters('namePrefix'))]"
             },
             "jumpboxSubnetId": {
               "type": "string",
-              "value": "[if(parameters('deployJumpboxSubnet'), reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}', parameters('namePrefix'))), '2023-11-01').subnets[2].id, '')]"
-            },
-            "privateDnsZoneIds": {
-              "type": "object",
-              "value": {
-                "cognitiveservices": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[0])]",
-                "openai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[1])]",
-                "servicesai": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[2])]",
-                "search": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[3])]",
-                "cosmosdb": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[4])]",
-                "blob": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[5])]",
-                "file": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZones')[6])]"
-              }
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-jumpbox', parameters('namePrefix'))), '2023-11-01').subnets[0].id]"
             }
           }
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployJumpbox')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "dns-jumpbox-links-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "namePrefix": {
+            "value": "[variables('namePrefix')]"
+          },
+          "jumpboxVnetId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-networking-deployment'), '2025-04-01').outputs.jumpboxVnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "3609654160922337400"
+            }
+          },
+          "parameters": {
+            "namePrefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource name prefix"
+              }
+            },
+            "jumpboxVnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Jumpbox VNet resource ID"
+              }
+            }
+          },
+          "variables": {
+            "privateDnsZones": [
+              "privatelink.cognitiveservices.azure.com",
+              "privatelink.openai.azure.com",
+              "privatelink.services.ai.azure.com",
+              "privatelink.search.windows.net",
+              "privatelink.documents.azure.com",
+              "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+              "[format('privatelink.file.{0}', environment().suffixes.storage)]"
+            ]
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "dnsZoneLinksJumpbox",
+                "count": "[length(variables('privateDnsZones'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZones')[copyIndex()], format('link-{0}-jumpbox', parameters('namePrefix')))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('jumpboxVnetId')]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-networking-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     },
@@ -629,9 +653,6 @@
           "location": {
             "value": "[parameters('location')]"
           },
-          "namePrefix": {
-            "value": "[variables('namePrefix')]"
-          },
           "tags": {
             "value": "[parameters('tags')]"
           }
@@ -643,7 +664,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "1673163573647447963"
+              "templateHash": "10156335722317095593"
             }
           },
           "parameters": {
@@ -651,12 +672,6 @@
               "type": "string",
               "metadata": {
                 "description": "Location for all resources"
-              }
-            },
-            "namePrefix": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource name prefix"
               }
             },
             "uniqueSuffix": {
@@ -723,28 +738,6 @@
               "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
               "apiVersion": "2023-01-01",
               "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'agents-data')]",
-              "properties": {
-                "publicAccess": "None"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('st{0}', variables('shortSuffix')), 'default')]"
-              ]
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'rag-documents')]",
-              "properties": {
-                "publicAccess": "None"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('st{0}', variables('shortSuffix')), 'default')]"
-              ]
-            },
-            {
-              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-              "apiVersion": "2023-01-01",
-              "name": "[format('{0}/{1}/{2}', format('st{0}', variables('shortSuffix')), 'default', 'rag-chunks')]",
               "properties": {
                 "publicAccess": "None"
               },
@@ -838,6 +831,9 @@
                   }
                 },
                 "semanticSearch": "standard"
+              },
+              "identity": {
+                "type": "SystemAssigned"
               }
             }
           ],
@@ -857,10 +853,6 @@
             "cosmosAccountName": {
               "type": "string",
               "value": "[format('cosmos-{0}', variables('shortSuffix'))]"
-            },
-            "cosmosDatabaseName": {
-              "type": "string",
-              "value": "agentdb"
             },
             "searchServiceId": {
               "type": "string",
@@ -1238,12 +1230,6 @@
           "location": {
             "value": "[parameters('location')]"
           },
-          "namePrefix": {
-            "value": "[variables('namePrefix')]"
-          },
-          "agentSubnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.agentSubnetId.value]"
-          },
           "storageAccountId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountId.value]"
           },
@@ -1273,7 +1259,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "3970405668698824595"
+              "templateHash": "9860659000388751408"
             }
           },
           "parameters": {
@@ -1281,12 +1267,6 @@
               "type": "string",
               "metadata": {
                 "description": "Location for all resources"
-              }
-            },
-            "namePrefix": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource name prefix"
               }
             },
             "uniqueSuffix": {
@@ -1301,12 +1281,6 @@
               "defaultValue": {},
               "metadata": {
                 "description": "Tags to apply to all resources"
-              }
-            },
-            "agentSubnetId": {
-              "type": "string",
-              "metadata": {
-                "description": "Agent subnet ID for capability host"
               }
             },
             "storageAccountId": {
@@ -1355,16 +1329,10 @@
             "cosmosBuiltinDataContributorId": "00000000-0000-0000-0000-000000000002",
             "searchIndexDataContributorRoleId": "8ebe5a00-799e-43f5-93ac-243d3dce84a7",
             "searchServiceContributorRoleId": "7ca78c08-252a-4471-8644-bb5ff32d4ba0",
-            "cognitiveServicesOpenAIContributorRoleId": "a001fd3d-188f-4b5d-821b-7da978bf7442"
+            "cognitiveServicesOpenAIContributorRoleId": "a001fd3d-188f-4b5d-821b-7da978bf7442",
+            "networkConnectionApproverRoleId": "b556d68e-0be0-4f35-a333-ad7ee1ce17ea"
           },
           "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('id-{0}', variables('shortSuffix'))]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]"
-            },
             {
               "type": "Microsoft.CognitiveServices/accounts",
               "apiVersion": "2025-04-01-preview",
@@ -1390,8 +1358,7 @@
                 "networkInjections": [
                   {
                     "scenario": "agent",
-                    "subnetArmId": "[parameters('agentSubnetId')]",
-                    "useMicrosoftManagedNetwork": false
+                    "useMicrosoftManagedNetwork": true
                   }
                 ]
               }
@@ -1419,27 +1386,6 @@
             {
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), 'gpt-5.2')]",
-              "sku": {
-                "name": "GlobalStandard",
-                "capacity": 10
-              },
-              "properties": {
-                "model": {
-                  "format": "OpenAI",
-                  "name": "gpt-5.2",
-                  "version": "2025-12-11"
-                },
-                "raiPolicyName": "Microsoft.DefaultV2"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'gpt-4o')]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/deployments",
-              "apiVersion": "2025-04-01-preview",
               "name": "[format('{0}/{1}', format('cog-{0}', variables('shortSuffix')), 'text-embedding-3-large')]",
               "sku": {
                 "name": "GlobalStandard",
@@ -1454,7 +1400,7 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'gpt-5.2')]"
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', format('cog-{0}', variables('shortSuffix')), 'gpt-4o')]"
               ]
             },
             {
@@ -1525,25 +1471,6 @@
                 "metadata": {
                   "ApiType": "azure",
                   "ResourceId": "[parameters('searchServiceId')]"
-                }
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.CognitiveServices/accounts/projects/connections",
-              "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}/{2}', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')), 'rag-storage-connection')]",
-              "properties": {
-                "category": "AzureStorageAccount",
-                "target": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]",
-                "authType": "AAD",
-                "metadata": {
-                  "ApiType": "azure",
-                  "AccountName": "[parameters('storageAccountName')]",
-                  "ContainerName": "rag-documents",
-                  "ResourceId": "[parameters('storageAccountId')]"
                 }
               },
               "dependsOn": [
@@ -1732,6 +1659,45 @@
                 "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]",
                 "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix')))]"
               ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('storageAccountId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('networkConnectionApproverRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('cosmosAccountId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('networkConnectionApproverRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('searchServiceId'), resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), variables('networkConnectionApproverRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('networkConnectionApproverRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix')))]"
+              ]
             }
           ],
           "outputs": {
@@ -1755,22 +1721,6 @@
               "type": "string",
               "value": "[format('proj-{0}', variables('shortSuffix'))]"
             },
-            "managedIdentityId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix')))]"
-            },
-            "managedIdentityPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix'))), '2023-01-31').principalId]"
-            },
-            "managedIdentityClientId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', variables('shortSuffix'))), '2023-01-31').clientId]"
-            },
-            "systemAssignedPrincipalId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('cog-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]"
-            },
             "projectPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('cog-{0}', variables('shortSuffix')), format('proj-{0}', variables('shortSuffix'))), '2025-04-01-preview', 'full').identity.principalId]"
@@ -1792,7 +1742,225 @@
       },
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment')]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "managed-network-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountName.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.storageAccountId.value]"
+          },
+          "cosmosAccountId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.cosmosAccountId.value]"
+          },
+          "searchServiceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "2573023569101867061"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry Account name"
+              }
+            },
+            "isolationMode": {
+              "type": "string",
+              "defaultValue": "AllowInternetOutbound",
+              "allowedValues": [
+                "AllowInternetOutbound",
+                "AllowOnlyApprovedOutbound"
+              ],
+              "metadata": {
+                "description": "Isolation mode"
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage Account resource ID"
+              }
+            },
+            "cosmosAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB Account resource ID"
+              }
+            },
+            "searchServiceId": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Search Service resource ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), 'default')]",
+              "properties": {
+                "managedNetwork": {
+                  "IsolationMode": "[parameters('isolationMode')]",
+                  "managedNetworkKind": "V2"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'storage-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('storageAccountId')]",
+                  "subresourceTarget": "blob",
+                  "sparkEnabled": false,
+                  "sparkStatus": "Inactive"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'cosmos-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('cosmosAccountId')]",
+                  "subresourceTarget": "Sql",
+                  "sparkEnabled": false,
+                  "sparkStatus": "Inactive"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'storage-rule')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules",
+              "apiVersion": "2025-10-01-preview",
+              "name": "[format('{0}/{1}/{2}', parameters('accountName'), 'default', 'search-rule')]",
+              "properties": {
+                "type": "PrivateEndpoint",
+                "destination": {
+                  "serviceResourceId": "[parameters('searchServiceId')]",
+                  "subresourceTarget": "searchService",
+                  "sparkEnabled": false,
+                  "sparkStatus": "Inactive"
+                },
+                "category": "UserDefined"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules', parameters('accountName'), 'default', 'cosmos-rule')]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/managedNetworks', parameters('accountName'), 'default')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "managedNetworkName": {
+              "type": "string",
+              "value": "default"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "account-capability-host-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment'), '2025-04-01').outputs.foundryAccountName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "14694211340602274553"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry Account name"
+              }
+            },
+            "capabilityHostName": {
+              "type": "string",
+              "defaultValue": "caphost-account",
+              "metadata": {
+                "description": "Capability Host name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/capabilityHosts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('capabilityHostName'))]",
+              "properties": {
+                "capabilityHostKind": "Agents"
+              }
+            }
+          ],
+          "outputs": {
+            "capabilityHostName": {
+              "type": "string",
+              "value": "[parameters('capabilityHostName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'managed-network-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'private-endpoints-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     },
@@ -1900,8 +2068,8 @@
         }
       },
       "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'account-capability-host-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'ai-foundry-deployment')]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'private-endpoints-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
     },
@@ -1924,7 +2092,7 @@
             "value": "[variables('namePrefix')]"
           },
           "jumpboxSubnetId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.jumpboxSubnetId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-networking-deployment'), '2025-04-01').outputs.jumpboxSubnetId.value]"
           },
           "adminUsername": {
             "value": "[parameters('jumpboxAdminUsername')]"
@@ -1943,7 +2111,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "5924341416314378133"
+              "templateHash": "665901176340397132"
             }
           },
           "parameters": {
@@ -2037,7 +2205,7 @@
                   "vmSize": "Standard_B2ms"
                 },
                 "osProfile": {
-                  "computerName": "jumpbox-win",
+                  "computerName": "jb-mvnet",
                   "adminUsername": "[parameters('adminUsername')]",
                   "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -2081,7 +2249,8 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dns-jumpbox-links-deployment')]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-networking-deployment')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'private-endpoints-deployment')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
       ]
@@ -2096,17 +2265,13 @@
       "type": "string",
       "value": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
     },
-    "vnetId": {
+    "customerVnetId": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetId.value]"
     },
-    "vnetName": {
+    "customerVnetName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'networking-deployment'), '2025-04-01').outputs.vnetName.value]"
-    },
-    "hubSpokeEnabled": {
-      "type": "bool",
-      "value": "[not(empty(parameters('hubVnetId')))]"
     },
     "foundryAccountName": {
       "type": "string",
@@ -2132,9 +2297,9 @@
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'dependent-resources-deployment'), '2025-04-01').outputs.searchServiceName.value]"
     },
-    "windowsJumpboxPrivateIp": {
+    "jumpboxVnetId": {
       "type": "string",
-      "value": "[if(parameters('deployJumpbox'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-deployment'), '2025-04-01').outputs.windowsVmPrivateIp.value, 'not-deployed')]"
+      "value": "[if(parameters('deployJumpbox'), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'jumpbox-networking-deployment'), '2025-04-01').outputs.jumpboxVnetId.value, 'not-deployed')]"
     },
     "windowsJumpboxPublicIp": {
       "type": "string",
