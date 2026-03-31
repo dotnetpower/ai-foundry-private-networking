@@ -51,6 +51,9 @@ Azure가 Agent용 VNet/PE를 **자동 관리** (`useMicrosoftManagedNetwork: tru
 | Jumpbox → Private 리소스 | VNet 내부 PE 경유 | 피어링 → Customer VNet PE 경유 |
 | Public IP | Jumpbox만 | Jumpbox만 |
 | Hub-Spoke | ✅ 지원 | ❌ Agent VNet 피어링 불가 |
+| Account publicNetworkAccess | `Disabled` | **`Enabled` (필수)** |
+| E2E Private Networking | **✅ 가능** | **❌ 불가 (Preview 제한)** |
+| 배포 방식 | Bicep 단독 | **Bicep + CLI 후속** (2단계) |
 | 상태 | **GA** | **Preview** |
 
 ### 배포되는 리소스
@@ -144,8 +147,12 @@ az cognitiveservices account purge \
 
 ## 제약 사항
 
+> ⚠️ **E2E Private Networking 불가** — 공식 `sample_mvnet.json`에 "There is no e2e secured set-up with this template"로 명시. 완전한 private networking이 필요하면 [basic/](../basic/) (BYO VNet) 방식을 사용하세요.
+
+- **Account `publicNetworkAccess: Enabled` 필수** — Agent Service가 Account 컨트롤 플레인을 통해 동작하므로 Disabled로 전환 불가. 데이터 플레인(Storage/Cosmos/Search)만 private
+- **2단계 배포 필수** — Bicep으로 Managed VNet 구조 선언 후, `batchOutboundRules` CLI를 별도 실행해야 Managed VNet PE가 활성화됨 (Bicep만으로는 `Inactive` 상태 유지)
 - **Preview** — GA 전까지 API/동작이 변경될 수 있음
 - **Feature 등록 필요** — `AI.ManagedVnetPreview` 승인 필요 (수 시간 소요)
-- **Agent VNet 피어링 불가** — Azure가 관리하는 Agent VNet의 ID를 알 수 없음
+- **Agent VNet 피어링 불가** — Azure가 관리하는 Agent VNet의 ID를 알 수 없음 → Hub-Spoke 구성 불가
 - **PE 2세트 비용** — Managed VNet PE (Azure 관리) + 고객 VNet PE (고객 관리)
 - **공식 Bicep 샘플** — [18-managed-virtual-network-preview](https://github.com/microsoft-foundry/foundry-samples/tree/main/infrastructure/infrastructure-setup-bicep/18-managed-virtual-network-preview) 참조

@@ -2,6 +2,8 @@
 // AI Foundry Module - Managed VNet (Preview)
 // =============================================================================
 // useMicrosoftManagedNetwork: true → Azure가 VNet/PE/DNS를 자동 관리
+// ⚠️ E2E Private 불가: Account publicNetworkAccess 는 Enabled 필수
+//    (Agent Service가 Account 컨트롤 플레인을 통해 동작)
 // =============================================================================
 
 @description('Location for all resources')
@@ -51,10 +53,9 @@ resource foundryAccount 'Microsoft.CognitiveServices/accounts@2025-04-01-preview
   }
   properties: {
     customSubDomainName: 'cog-${shortSuffix}'
-    publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: 'Enabled'
     networkAcls: {
-      defaultAction: 'Deny'
-      bypass: 'AzureServices'
+      defaultAction: 'Allow'
     }
     disableLocalAuth: false
     allowProjectManagement: true

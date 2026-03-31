@@ -38,12 +38,19 @@ applyTo: '**'
 - **Hub VNet**: `scripts/setup-hub-spoke.sh`로 사전 구성
 
 ### Standard Agent Setup (`infra-foundry-new/standard/`)
-- **Private Networking 지원**: VNet + Private Endpoint + Private DNS Zone
-- **프롬프트 기반 Agent**: 코드 없이 Foundry 내장 도구 사용
-- **Capability Host**: Project 수준, VNet subnet 연동
-  - Bicep API에서 `virtualNetworkSubnetResourceId` 미지원
-  - **CLI 스크립트(`scripts/setup-capability-host.sh`)로 자동 구성**
+
+#### basic/ — BYO VNet (GA, E2E Private)
+- **E2E Private Networking**: VNet + Private Endpoint + Private DNS Zone
+- **publicNetworkAccess**: `Disabled` (모든 리소스)
+- **Capability Host**: Bicep으로 배포 (`ai-foundry/capability-host.bicep`)
 - **필요 인프라**: VNet, Storage, Cosmos DB, AI Search, Private Endpoints
+
+#### basic-managedvnet/ — Managed VNet (Preview, E2E Private 불가)
+- **E2E Private Networking 불가**: Account `publicNetworkAccess: Enabled` 필수 (Agent Service 동작에 필요)
+- **데이터 플레인만 Private**: Storage, Cosmos DB, AI Search는 `publicNetworkAccess: Disabled`
+- **2단계 배포 필수**: Bicep으로 구조 선언 → `batchOutboundRules` CLI로 Managed VNet PE 활성화
+- **Feature 등록**: `AI.ManagedVnetPreview` Preview Feature 승인 필요
+- **Hub-Spoke 미지원**: Azure가 관리하는 Agent VNet의 ID를 알 수 없음
 
 ### Hosted Agent Setup (`infra-foundry-new/hosted/`)
 - **Private Networking 미지원 (Preview 제한)**
@@ -139,6 +146,7 @@ scripts/
 | `Classic Hub + preview API 호환성` | OpenAI `2025-04-01-preview` 사용 | GA 버전 `2024-10-01` 사용 |
 | `Cosmos DB Forbidden 403 / 5301` | Cosmos DB Operator는 관리 플레인만 커버 | `Cosmos DB Built-in Data Contributor` (데이터 플레인 RBAC, ID: `00000000-0000-0000-0000-000000000002`) 추가 할당 필수 |
 | `Windows VM computerName 15자 초과` | `az vm create` 시 VM name이 computerName으로 사용됨 | `--computer-name` 파라미터로 15자 이내 이름 명시 |
+| `Managed VNet Cosmos DB 403 Forbidden` | Account `publicNetworkAccess: Disabled` + Managed VNet PE `Inactive` | Account `publicNetworkAccess: Enabled` 필수 + `batchOutboundRules` CLI로 PE 활성화 |
 
 
 ## 배포 명령어

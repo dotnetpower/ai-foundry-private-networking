@@ -208,8 +208,8 @@ az rest --method PUT \
     \"tags\": { \"Environment\": \"${ENV_NAME}\", \"Project\": \"AI-Foundry-ManagedVNet\" },
     \"properties\": {
       \"customSubDomainName\": \"${ACCOUNT_NAME}\",
-      \"publicNetworkAccess\": \"Disabled\",
-      \"networkAcls\": { \"defaultAction\": \"Deny\", \"bypass\": \"AzureServices\" },
+      \"publicNetworkAccess\": \"Enabled\",
+      \"networkAcls\": { \"defaultAction\": \"Allow\" },
       \"disableLocalAuth\": false,
       \"allowProjectManagement\": true,
       \"networkInjections\": [{
@@ -260,6 +260,15 @@ az rest --method PUT \
 
 echo "  Outbound Rules 프로비저닝 대기..."
 sleep 30
+
+# batchOutboundRules로 Managed VNet PE 활성화
+echo "  Managed VNet PE 활성화 (batchOutboundRules)..."
+az rest --method POST \
+  --url "https://management.azure.com${ACCOUNT_ID}/managedNetworks/default/batchOutboundRules?api-version=2025-10-01-preview" \
+  --body "{\"id\":\"${ACCOUNT_ID}/managedNetworks/default\",\"name\":\"default\",\"type\":\"Microsoft.CognitiveServices/accounts/managedNetworks/outboundRules\",\"properties\":{\"IsolationMode\":\"AllowInternetOutbound\",\"outboundRules\":{\"storage-rule\":{\"type\":\"PrivateEndpoint\",\"destination\":{\"serviceResourceId\":\"${STORAGE_ID}\",\"subresourceTarget\":\"blob\",\"sparkEnabled\":false,\"sparkStatus\":\"Inactive\"},\"category\":\"UserDefined\"},\"cosmosdb-rule\":{\"type\":\"PrivateEndpoint\",\"destination\":{\"serviceResourceId\":\"${COSMOS_ID}\",\"subresourceTarget\":\"Sql\",\"sparkEnabled\":false,\"sparkStatus\":\"Inactive\"},\"category\":\"UserDefined\"},\"search-rule\":{\"type\":\"PrivateEndpoint\",\"destination\":{\"serviceResourceId\":\"${SEARCH_ID}\",\"subresourceTarget\":\"searchService\",\"sparkEnabled\":false,\"sparkStatus\":\"Inactive\"},\"category\":\"UserDefined\"}},\"managedNetworkKind\":\"V2\"}}" -o none 2>/dev/null || true
+
+echo "  Managed VNet PE 활성화 대기 (3분)..."
+sleep 180
 
 echo "  모델 배포: gpt-4o..."
 az rest --method PUT \
